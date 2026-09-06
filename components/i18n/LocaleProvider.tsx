@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { translate, dirOf, withLocale, LOCALE_COOKIE, type Locale } from "@/lib/i18n";
 
 type Ctx = {
@@ -27,11 +27,18 @@ export function useLocale() {
 export function LocaleProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const search = useSearchParams();
 
   /* Changing language is a navigation: same page, different locale segment.
      The cookie is only so an unmarked request (someone typing the bare domain,
-     or a bookmark from before) can be returned to this choice — see proxy.ts. */
+     or a bookmark from before) can be returned to this choice — see proxy.ts.
+
+     The query string is read here rather than through useSearchParams. That
+     hook makes every client component above the nearest Suspense boundary
+     render on the client, and this provider wraps the whole app — there is no
+     boundary above it, so it would opt the entire site out of prerendering
+     (and fails the production build outright). Nothing needs the query while
+     rendering; only this handler does, it only ever runs from a click, and
+     location.search is exactly as current there. */
   const setLocale = useCallback(
     (l: Locale) => {
       try {
@@ -39,10 +46,9 @@ export function LocaleProvider({ locale, children }: { locale: Locale; children:
       } catch {
         /* storage blocked — the URL still carries the choice for this visit */
       }
-      const query = search.toString();
-      router.push(withLocale(pathname, l) + (query ? `?${query}` : ""));
+      router.push(withLocale(pathname, l) + window.location.search);
     },
-    [router, pathname, search],
+    [router, pathname],
   );
 
   const value = useMemo(

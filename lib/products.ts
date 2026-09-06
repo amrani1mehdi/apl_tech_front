@@ -13,6 +13,8 @@ export type Product = {
   badge?: { label: string; tone: "accent" | "ink" };
   /** shown in the Nouvel arrivage row */
   isNew?: boolean;
+  /** announced but not on the shelf yet — orderable, ships when it lands */
+  preorder?: boolean;
   short: string;
   specs: Spec[];
   stock: boolean;
@@ -300,6 +302,33 @@ export const NEW_ARRIVALS = PRODUCTS.filter((p) => p.isNew);
 /** A promo is simply a product carrying a struck-through oldPrice — no extra
  *  flag to keep in sync with the price itself. */
 export const PROMOS = PRODUCTS.filter((p) => p.oldPrice !== undefined && p.stock);
+
+/* ── Badges ───────────────────────────────────────────────────────────────
+   Derived from the product rather than stored beside it, so a badge cannot
+   end up contradicting the price or the stock flag it describes. The order is
+   the priority order: the first is the one a cramped layout shows alone. */
+export type BadgeKind = "promo" | "new" | "preorder" | "out";
+
+export function badgeKinds(p: Product): BadgeKind[] {
+  const kinds: BadgeKind[] = [];
+  if (p.oldPrice !== undefined) kinds.push("promo");
+  if (p.isNew) kinds.push("new");
+  // a pre-order is not a rupture — nobody failed to stock it yet
+  if (p.preorder) kinds.push("preorder");
+  else if (!p.stock) kinds.push("out");
+  return kinds;
+}
+
+/** the saving as a whole percent, for a promo carrying no label of its own */
+export function discountPct(p: Product): number | null {
+  if (p.oldPrice === undefined || p.oldPrice <= p.price) return null;
+  return Math.round((1 - p.price / p.oldPrice) * 100);
+}
+
+/** orderable at all — a pre-order takes money, a rupture does not */
+export function isOrderable(p: Product): boolean {
+  return p.stock || p.preorder === true;
+}
 
 export function getProduct(slug: string): Product | undefined {
   return PRODUCTS.find((p) => p.slug === slug);

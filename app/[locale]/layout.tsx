@@ -42,7 +42,12 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[lo
 
   return (
     <html lang={locale} dir={dirOf(locale)} className="h-full antialiased">
-      <body className="min-h-full bg-paper text-ink">
+      {/* Browser extensions stamp their own attributes on <body> before React
+          hydrates — ColorZilla's cz-shortcut-listen is the one that turns up
+          here — and React reports each as a hydration mismatch it cannot
+          patch. The suppression reaches this element's own attributes and no
+          further, so a genuine mismatch inside the page still surfaces. */}
+      <body className="min-h-full bg-paper text-ink" suppressHydrationWarning>
         <LocaleProvider locale={locale}>
           <CartProvider>
             <PageTransition />

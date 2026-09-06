@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/site/PageHeader";
+import { StoreHero } from "./StoreHero";
 import { CatalogueClient } from "./CatalogueClient";
+import { CatalogueSkeleton } from "./CatalogueSkeleton";
 
 export const metadata: Metadata = {
   title: "Catalogue — APL TECH",
@@ -11,8 +12,8 @@ export const metadata: Metadata = {
 export default function CataloguePage() {
   return (
     <main>
-      <PageHeader crumbKey="cata.crumb" titleKey="cata.title" subtitleKey="cata.subtitle" />
-      <Suspense fallback={null}>
+      <StoreHero />
+      <Suspense fallback={<CatalogueSkeleton />}>
         <CatalogueClient />
       </Suspense>
     </main>
