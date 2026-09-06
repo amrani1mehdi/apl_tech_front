@@ -156,10 +156,12 @@ export function CatalogueClient() {
         aria-label={t("cata.browse")}
         className="sticky top-[68px] z-30 border-b border-line bg-paper/85 backdrop-blur-md"
       >
-        <div className="mx-auto flex max-w-[1320px] items-center gap-5 px-5 lg:px-8">
-          <span className="hidden shrink-0 font-sans text-[10px] font-semibold uppercase text-faint lg:block">
-            {t("cata.browse")}
-          </span>
+        {/* No visible label over the chips: they are category names, which
+            need no caption, and the one that used to sit here only appeared
+            from lg — so it also pushed the rail out of line with the filter
+            panel and grid underneath it. The nav keeps its aria-label, which
+            is what a screen reader needs to announce the landmark. */}
+        <div className="mx-auto flex max-w-[1320px] items-center px-5 lg:px-8">
           <div className="no-bar rail-scroll -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 py-4">
             {categories.map((c) => {
               const on = state.cat === c.key;
