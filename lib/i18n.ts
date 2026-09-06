@@ -263,7 +263,7 @@ const D: Record<string, Tr> = {
   // ── catalogue ──
   "cata.crumb": { fr: "Catalogue", ar: "الكتالوج", en: "Catalogue" },
   "cata.title": { fr: "Le catalogue.", ar: "الكتالوج.", en: "The catalogue." },
-  "cata.subtitle": { fr: "Composants, machines complètes et périphériques — filtrés pour trouver exactement ce qu'il te faut.", ar: "مكوّنات وأجهزة كاملة وملحقات — مُصنَّفة لتجد ما تحتاجه بالضبط.", en: "Components, complete machines and peripherals — filtered to find exactly what you need." },
+  "cata.subtitle": { fr: "Composants, PC complets et périphériques.", ar: "مكوّنات، أجهزة كاملة وملحقات.", en: "Components, complete builds and peripherals." },
   "cata.result": { fr: "résultat", ar: "نتيجة", en: "result" },
   "cata.results": { fr: "résultats", ar: "نتائج", en: "results" },
   "cata.category": { fr: "Catégorie", ar: "الفئة", en: "Category" },

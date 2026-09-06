@@ -26,6 +26,10 @@ export function StoreHero() {
         <h1 className="mt-4 font-display text-[clamp(2.6rem,5.5vw,4rem)] font-bold leading-[1] tracking-[-0.02em] text-ink">
           {t("cata.title")}
         </h1>
+
+        {/* One line, not the paragraph that used to be here — it says what is
+            in the shop and stops, so the title keeps the weight. */}
+        <p className="mt-3 text-mute">{t("cata.subtitle")}</p>
       </div>
     </section>
   );
