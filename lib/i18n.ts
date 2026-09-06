@@ -1,0 +1,351 @@
+/* The locale primitives live in lib/locales.ts so proxy.ts can have them
+   without this file's phrasebook; re-exported here so the rest of the app
+   keeps one import for anything locale-shaped. */
+export {
+  LOCALES,
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  isLocale,
+  dirOf,
+  splitLocale,
+  withLocale,
+  type Locale,
+} from "./locales";
+
+import type { Locale } from "./locales";
+
+export const LOCALE_LABEL: Record<Locale, string> = { fr: "FR", ar: "ع", en: "EN" };
+
+type Tr = Record<Locale, string>;
+
+const D: Record<string, Tr> = {
+  // ── nav ──
+  "nav.home": { fr: "Accueil", ar: "الرئيسية", en: "Home" },
+  "nav.store": { fr: "Boutique", ar: "المتجر", en: "Store" },
+  "nav.contact": { fr: "Contact", ar: "اتصل بنا", en: "Contact" },
+  "nav.composants": { fr: "Composants", ar: "المكوّنات", en: "Components" },
+  "nav.pcGamer": { fr: "PC Gamer", ar: "حواسيب الألعاب", en: "Gaming PCs" },
+  "nav.peripheriques": { fr: "Périphériques", ar: "الملحقات", en: "Peripherals" },
+  "nav.portables": { fr: "Portables", ar: "المحمولة", en: "Laptops" },
+  "nav.ecrans": { fr: "Écrans", ar: "الشاشات", en: "Monitors" },
+  "nav.configurateur": { fr: "Configurateur", ar: "تجميع حاسوب", en: "PC Builder" },
+
+  // ── ticker ──
+  "ticker.delivery": { fr: "Livraison dans les 58 wilayas", ar: "التوصيل إلى 58 ولاية", en: "Delivery to all 58 wilayas" },
+  "ticker.cod": { fr: "Paiement à la livraison", ar: "الدفع عند الاستلام", en: "Cash on delivery" },
+  "ticker.warranty": { fr: "Garantie officielle Algérie", ar: "ضمان رسمي في الجزائر", en: "Official warranty in Algeria" },
+  "ticker.assembly": { fr: "Montage PC offert dès 150 000 DA", ar: "تركيب مجاني ابتداءً من 150,000 دج", en: "Free PC assembly from 150,000 DA" },
+
+  // ── common ──
+  "c.search": { fr: "Rechercher", ar: "بحث", en: "Search" },
+  "c.account": { fr: "Mon compte", ar: "حسابي", en: "Account" },
+  "c.cart": { fr: "Panier", ar: "السلة", en: "Cart" },
+  "c.menu": { fr: "Menu", ar: "القائمة", en: "Menu" },
+  "c.close": { fr: "Fermer", ar: "إغلاق", en: "Close" },
+  "c.addToCart": { fr: "Ajouter au panier", ar: "أضف إلى السلة", en: "Add to cart" },
+  "c.unavailable": { fr: "Indisponible", ar: "غير متوفر", en: "Unavailable" },
+  "c.from": { fr: "À partir de", ar: "ابتداءً من", en: "From" },
+  "c.inStock": { fr: "En stock", ar: "متوفر", en: "In stock" },
+  "c.outOfStock": { fr: "Rupture", ar: "نفد", en: "Out of stock" },
+  "c.seeAll": { fr: "Voir tout", ar: "عرض الكل", en: "See all" },
+  "c.seeSelection": { fr: "Voir la sélection", ar: "عرض التشكيلة", en: "Shop the drop" },
+  "c.allCatalogue": { fr: "Tout le catalogue", ar: "كامل الكتالوج", en: "Full catalogue" },
+  "c.continueShopping": { fr: "Continuer mes achats", ar: "متابعة التسوّق", en: "Continue shopping" },
+  "c.total": { fr: "Total", ar: "المجموع", en: "Total" },
+  "c.subtotal": { fr: "Sous-total", ar: "المجموع الفرعي", en: "Subtotal" },
+  "c.reviews": { fr: "avis", ar: "تقييم", en: "reviews" },
+
+  // ── categories (names) ──
+  "cat.pc-gamer": { fr: "PC Gamer", ar: "حواسيب الألعاب", en: "Gaming PCs" },
+  "cat.cartes-graphiques": { fr: "Cartes graphiques", ar: "بطاقات الرسوميات", en: "Graphics cards" },
+  "cat.processeurs": { fr: "Processeurs", ar: "المعالجات", en: "Processors" },
+  "cat.portables": { fr: "Portables", ar: "الحواسيب المحمولة", en: "Laptops" },
+  "cat.peripheriques": { fr: "Périphériques", ar: "الملحقات", en: "Peripherals" },
+  "cat.ecrans": { fr: "Écrans", ar: "الشاشات", en: "Monitors" },
+
+  // category metas (home cards)
+  "catmeta.pc-gamer": { fr: "24 configurations prêtes", ar: "24 تشكيلة جاهزة", en: "24 ready builds" },
+  "catmeta.cartes-graphiques": { fr: "+40 modèles", ar: "+40 موديل", en: "40+ models" },
+  "catmeta.processeurs": { fr: "Intel · AMD", ar: "إنتل · إيه إم دي", en: "Intel · AMD" },
+  "catmeta.ecrans": { fr: "144 – 360 Hz", ar: "144 – 360 هرتز", en: "144 – 360 Hz" },
+  "catmeta.portables": { fr: "Gaming & créateurs", ar: "ألعاب وإبداع", en: "Gaming & creators" },
+  "catmeta.peripheriques": { fr: "Souris · Claviers · Casques", ar: "فأرة · لوحات · سماعات", en: "Mice · Keyboards · Headsets" },
+
+  // ── hero slides ──
+  // ── contact ──
+  "ct.crumb": { fr: "Contact", ar: "اتصل بنا", en: "Contact" },
+  "ct.title": { fr: "Parlons de ta config.", ar: "لنتحدّث عن تجميعتك.", en: "Let's talk about your build." },
+  "ct.subtitle": { fr: "Une question sur une pièce, une commande ou une config sur-mesure ? On répond en darija, français ou anglais.", ar: "سؤال عن قطعة أو طلب أو تجميعة خاصة؟ نجيب بالدارجة أو الفرنسية أو الإنجليزية.", en: "A question about a part, an order or a custom build? We answer in darija, French or English." },
+  "ct.reach": { fr: "Nous joindre", ar: "تواصل معنا", en: "Reach us" },
+  "ct.hours": { fr: "Samedi – jeudi, 9h – 18h", ar: "السبت – الخميس، 9ص – 6م", en: "Saturday – Thursday, 9am – 6pm" },
+  "ct.hoursLabel": { fr: "Horaires", ar: "أوقات العمل", en: "Hours" },
+  "ct.formTitle": { fr: "Écris-nous", ar: "راسلنا", en: "Send a message" },
+  "ct.name": { fr: "Nom", ar: "الاسم", en: "Name" },
+  "ct.phone": { fr: "Téléphone", ar: "الهاتف", en: "Phone" },
+  "ct.subject": { fr: "Sujet", ar: "الموضوع", en: "Subject" },
+  "ct.message": { fr: "Message", ar: "الرسالة", en: "Message" },
+  "ct.send": { fr: "Envoyer", ar: "إرسال", en: "Send" },
+  "ct.sent": { fr: "Message envoyé. On te rappelle dans la journée.", ar: "تم إرسال الرسالة. سنتّصل بك خلال اليوم.", en: "Message sent. We'll call you back today." },
+  "ct.fill": { fr: "Merci de remplir tous les champs requis.", ar: "يرجى ملء جميع الحقول المطلوبة.", en: "Please fill in all required fields." },
+
+  // ── account ──
+  "ac.crumb": { fr: "Mon compte", ar: "حسابي", en: "Account" },
+  "ac.title": { fr: "Pas besoin de compte.", ar: "لا حاجة لحساب.", en: "No account needed." },
+  "ac.subtitle": { fr: "Tu commandes sans inscription et tu payes à la livraison. Pour suivre une commande ou modifier une adresse, contacte-nous avec ton numéro de téléphone.", ar: "تطلب دون تسجيل وتدفع عند الاستلام. لتتبّع طلب أو تعديل عنوان، تواصل معنا برقم هاتفك.", en: "You order without signing up and pay on delivery. To track an order or change an address, contact us with your phone number." },
+  "ac.contactCta": { fr: "Nous contacter", ar: "اتصل بنا", en: "Contact us" },
+  "ac.shopCta": { fr: "Voir la boutique", ar: "تصفّح المتجر", en: "Browse the store" },
+
+  // ── promotions ──
+  "sec.promo.divider": { fr: "Promotions", ar: "تخفيضات", en: "Deals" },
+  "sec.promo.eyebrow": { fr: "Prix réduits, stock limité", ar: "أسعار مخفّضة، الكمية محدودة", en: "Cut prices, limited stock" },
+  "sec.promo.title": { fr: "Produits en promotion.", ar: "منتجات بتخفيض.", en: "On sale now." },
+
+  // ── new arrivals ──
+  "sec.new.divider": { fr: "Nouveautés", ar: "الجديد", en: "New in" },
+  "sec.new.eyebrow": { fr: "Dernières références en stock", ar: "أحدث المنتجات المتوفرة", en: "Latest stock to land" },
+  "sec.new.title": { fr: "Nouvel arrivage.", ar: "وصل حديثاً.", en: "Just arrived." },
+
+  // ── GPU anatomy ──
+  "sec.anat.divider": { fr: "Anatomie", ar: "التشريح", en: "Anatomy" },
+  "sec.anat.eyebrow": { fr: "Apprends à lire une carte", ar: "تعلّم قراءة البطاقة", en: "Learn to read a card" },
+  "sec.anat.title": { fr: "Ce qu'il y a dans une carte graphique.", ar: "ما بداخل بطاقة الرسوميات.", en: "What's inside a graphics card." },
+  "sec.anat.desc": { fr: "Le vocabulaire que tu retrouveras sur chaque fiche produit. Survole une pièce pour la situer.", ar: "المصطلحات التي ستجدها في كل بطاقة منتج. مرّر فوق أي قطعة لتحديد موقعها.", en: "The vocabulary you'll meet on every product page. Hover a part to place it." },
+  "sec.anat.alt": { fr: "Schéma isométrique d'une carte graphique et de ses pièces", ar: "رسم متساوي القياس لبطاقة رسوميات وقطعها", en: "Isometric diagram of a graphics card and its parts" },
+  "sec.anat.length": { fr: "≈ 310 mm — vérifie ton boîtier", ar: "≈ 310 مم — تحقّق من صندوقك", en: "≈ 310 mm — check your case" },
+
+  "anat.fans.n": { fr: "Ventilateurs", ar: "المراوح", en: "Fans" },
+  "anat.fans.d": { fr: "Ils poussent l'air à travers le dissipateur. Sur les cartes récentes, ils s'arrêtent complètement au repos.", ar: "تدفع الهواء عبر المشتّت. في البطاقات الحديثة تتوقّف تماماً عند الخمول.", en: "They push air through the heatsink. On recent cards they stop entirely when idle." },
+  "anat.heatsink.n": { fr: "Dissipateur", ar: "المشتّت الحراري", en: "Heatsink" },
+  "anat.heatsink.d": { fr: "Les ailettes en aluminium qui absorbent la chaleur du GPU. Plus il est large, plus la carte reste silencieuse.", ar: "زعانف ألمنيوم تمتصّ حرارة المعالج الرسومي. كلما اتّسع، بقيت البطاقة أهدأ.", en: "The aluminium fins that pull heat off the GPU. The bigger it is, the quieter the card runs." },
+  "anat.outputs.n": { fr: "Sorties vidéo", ar: "مخارج الفيديو", en: "Display outputs" },
+  "anat.outputs.d": { fr: "DisplayPort et HDMI. Vérifie qu'elles correspondent aux entrées de ton écran avant de commander.", ar: "‏DisplayPort و HDMI. تأكّد من توافقها مع مداخل شاشتك قبل الطلب.", en: "DisplayPort and HDMI. Check they match your monitor's inputs before ordering." },
+  "anat.pcie.n": { fr: "Connecteur PCIe", ar: "موصل PCIe", en: "PCIe connector" },
+  "anat.pcie.d": { fr: "La languette dorée qui s'insère dans la carte mère. Compatible avec tous les ports PCIe, quelle que soit la génération.", ar: "اللسان الذهبي الذي يدخل في اللوحة الأم. متوافق مع كل منافذ PCIe مهما كان الجيل.", en: "The gold edge that seats into the motherboard. It fits any PCIe slot, whatever the generation." },
+  "anat.power.n": { fr: "Alimentation", ar: "موصل الطاقة", en: "Power connector" },
+  "anat.power.d": { fr: "C'est lui qui fixe la puissance minimale de ton bloc. Une RTX 5080 demande 850 W.", ar: "هو ما يحدّد أدنى قدرة لمزوّد الطاقة. تحتاج RTX 5080 إلى 850 واط.", en: "This sets the minimum power supply you need. An RTX 5080 wants 850 W." },
+  "anat.backplate.n": { fr: "Backplate", ar: "اللوحة الخلفية", en: "Backplate" },
+  "anat.backplate.d": { fr: "La plaque arrière. Elle rigidifie la carte et l'empêche de plier sous son propre poids.", ar: "اللوحة الخلفية. تقوّي البطاقة وتمنعها من الانحناء تحت وزنها.", en: "The rear plate. It stiffens the card and stops it sagging under its own weight." },
+
+  "hero.s0.tag": { fr: "Offre limitée", ar: "عرض محدود", en: "Limited offer" },
+  "hero.s0.title": { fr: "Jusqu'à -50% sur ta config.", ar: "حتى -50% على تجهيزتك.", en: "Up to -50% off your rig." },
+  "hero.s0.desc": { fr: "Sélection de PC gamer, composants et périphériques à prix cassés. Stock limité, livré et garanti partout en Algérie.", ar: "تشكيلة من حواسيب الألعاب والمكوّنات والملحقات بأسعار مخفّضة. الكمية محدودة، مع التوصيل والضمان في كل الجزائر.", en: "Selected gaming PCs, components and peripherals at cut prices. Limited stock, delivered and warrantied across Algeria." },
+  "hero.s0.spec1": { fr: "Jusqu'à -50%", ar: "حتى -50%", en: "Up to -50%" },
+  "hero.s0.spec2": { fr: "Stock limité", ar: "الكمية محدودة", en: "Limited stock" },
+  "hero.s0.spec3": { fr: "Garantie officielle", ar: "ضمان رسمي", en: "Official warranty" },
+  "hero.sb.tag": { fr: "Configurateur assisté", ar: "تجميع بمساعدة ذكية", en: "Guided PC builder" },
+  "hero.sb.title": { fr: "On assemble, tu joues.", ar: "نحن نُجمّع، وأنت تلعب.", en: "We build it, you play." },
+  "hero.sb.desc": { fr: "Choisis tes pièces, le configurateur vérifie la compatibilité en direct. Montage et test sous charge offerts sur chaque config.", ar: "اختر قطعك، وأداة التجميع تتحقّق من التوافق مباشرة. التركيب والاختبار تحت الضغط مجاناً مع كل تجميعة.", en: "Pick your parts and the builder checks compatibility live. Assembly and stress-testing included on every build." },
+  "hero.sb.spec1": { fr: "Compatibilité vérifiée", ar: "توافق مضمون", en: "Compatibility checked" },
+  "hero.sb.spec2": { fr: "Montage offert", ar: "تركيب مجاني", en: "Free assembly" },
+  "hero.sb.spec3": { fr: "Testé sous charge", ar: "مُختبر تحت الضغط", en: "Stress-tested" },
+  "hero.sd.tag": { fr: "Livraison 58 wilayas", ar: "التوصيل إلى 58 ولاية", en: "Delivery to all 58 wilayas" },
+  "hero.sd.title": { fr: "Livré partout en Algérie.", ar: "يُوصَّل إلى كل الجزائر.", en: "Delivered anywhere in Algeria." },
+  "hero.sd.desc": { fr: "Du nord au grand sud, on livre dans les 58 wilayas. Tu payes à la réception, après avoir vérifié ton colis.", ar: "من الشمال إلى أقصى الجنوب، نُوصّل إلى 58 ولاية. تدفع عند الاستلام بعد معاينة طردك.", en: "From the north to the deep south, we deliver to all 58 wilayas. You pay on arrival, after checking your parcel." },
+  "hero.sd.spec1": { fr: "58 wilayas", ar: "58 ولاية", en: "58 wilayas" },
+  "hero.sd.spec2": { fr: "Paiement à la livraison", ar: "الدفع عند الاستلام", en: "Cash on delivery" },
+  "hero.sd.spec3": { fr: "Gratuite dès 100 000 DA", ar: "مجاني ابتداءً من 100,000 دج", en: "Free from 100,000 DA" },
+  "hero.s1.tag": { fr: "PC Gamer sur-mesure", ar: "حواسيب ألعاب حسب الطلب", en: "Custom gaming PCs" },
+  "hero.s1.title": { fr: "La machine qui ne plie jamais.", ar: "آلة لا تنحني أبداً.", en: "The rig that never flinches." },
+  "hero.s1.desc": { fr: "Configurations assemblées à la main par nos techniciens et testées sous charge avant la livraison.", ar: "تركيب يدوي على يد فنيينا واختبار تحت الضغط قبل التسليم.", en: "Hand-assembled by our technicians and stress-tested before delivery." },
+  "hero.s2.tag": { fr: "Cartes graphiques", ar: "بطاقات الرسوميات", en: "Graphics cards" },
+  "hero.s2.title": { fr: "Affiche chaque pixel.", ar: "اعرض كل بكسل.", en: "Render every pixel." },
+  "hero.s2.desc": { fr: "Le meilleur du ray tracing et du DLSS, en stock et garanti officiellement en Algérie.", ar: "أفضل تتبّع الأشعّة و DLSS، متوفرة وبضمان رسمي في الجزائر.", en: "The best of ray tracing and DLSS, in stock and officially warrantied in Algeria." },
+  "hero.s3.tag": { fr: "PC Portables Gamer", ar: "حواسيب محمولة للألعاب", en: "Gaming laptops" },
+  "hero.s3.title": { fr: "Ta puissance, partout.", ar: "قوّتك، أينما كنت.", en: "Your power, anywhere." },
+  "hero.s3.desc": { fr: "Des portables fins et brutaux, dalles 240 Hz et autonomie pensée pour les longues sessions.", ar: "حواسيب نحيفة وقوية، شاشات 240 هرتز وبطارية للجلسات الطويلة.", en: "Thin, brutal laptops with 240 Hz panels built for long sessions." },
+  "hero.s4.tag": { fr: "Périphériques", ar: "الملحقات", en: "Peripherals" },
+  "hero.s4.title": { fr: "Le détail qui fait gagner.", ar: "التفصيل الذي يصنع الفوز.", en: "The edge that wins." },
+  "hero.s4.desc": { fr: "Souris, claviers et casques de compétition. La précision qui transforme chaque partie.", ar: "فأرات ولوحات وسماعات احترافية. دقّة تغيّر كل مباراة.", en: "Competition mice, keyboards and headsets. Precision that changes every match." },
+
+  // ── sections ──
+  "sec.cat.divider": { fr: "Catégories", ar: "الفئات", en: "Categories" },
+  "sec.cat.eyebrow": { fr: "Explore la boutique", ar: "استكشف المتجر", en: "Explore the store" },
+  "sec.cat.title": { fr: "Trouve ton matériel.", ar: "اعثر على عتادك.", en: "Find your gear." },
+
+  "sec.feat.divider": { fr: "Meilleures ventes", ar: "الأكثر مبيعاً", en: "Best sellers" },
+  "sec.feat.eyebrow": { fr: "Plébiscités par les gamers", ar: "اختيار اللاعبين", en: "Loved by gamers" },
+  "sec.feat.title": { fr: "Les plus convoités.", ar: "الأكثر طلباً.", en: "Most wanted." },
+
+  "sec.build.eyebrow": { fr: "Configurateur sur-mesure", ar: "تجميع حسب الطلب", en: "Custom builder" },
+  "sec.build.title1": { fr: "Configure le PC", ar: "اصنع حاسوب", en: "Build the PC" },
+  "sec.build.title2": { fr: "de tes rêves.", ar: "أحلامك.", en: "of your dreams." },
+  "sec.build.desc": { fr: "Choisis chaque pièce, on l’assemble, on le teste sous charge, puis on te le livre monté. Compatibilité garantie, ou on s’en occupe.", ar: "اختر كل قطعة، نركّبها، نختبرها تحت الضغط، ثم نوصّلها لك جاهزة. التوافق مضمون، أو نحن نتكفّل بذلك.", en: "Pick every part, we assemble it, stress-test it, then deliver it built. Compatibility guaranteed — or we handle it." },
+  "sec.build.step1": { fr: "Choisis tes pièces", ar: "اختر قطعك", en: "Pick your parts" },
+  "sec.build.step2": { fr: "On assemble & teste", ar: "نركّب ونختبر", en: "We build & test" },
+  "sec.build.step3": { fr: "Livré monté chez toi", ar: "يُسلّم جاهزاً إليك", en: "Delivered built" },
+  "sec.build.cta": { fr: "Lancer le configurateur", ar: "ابدأ التجميع", en: "Launch the builder" },
+  "sec.build.config": { fr: "Ta configuration", ar: "تجميعتك", en: "Your build" },
+  "sec.build.compatible": { fr: "Compatible 100%", ar: "متوافق 100%", en: "100% compatible" },
+  "sec.build.estTotal": { fr: "Total estimé", ar: "المجموع التقديري", en: "Estimated total" },
+
+  "sec.why.divider": { fr: "Pourquoi nous", ar: "لماذا نحن", en: "Why us" },
+  "sec.why.eyebrow": { fr: "La confiance, d'abord", ar: "الثقة أولاً", en: "Trust, first" },
+  "sec.why.title": { fr: "Pensé pour les gamers algériens.", ar: "مصمَّم للاعبين الجزائريين.", en: "Built for Algerian gamers." },
+  "stat.wilayas": { fr: "Wilayas livrées", ar: "ولاية نخدمها", en: "Wilayas served" },
+  "stat.clients": { fr: "Clients équipés", ar: "عميل مجهَّز", en: "Gamers equipped" },
+  "stat.brands": { fr: "Marques", ar: "علامة تجارية", en: "Brands" },
+  "stat.rating": { fr: "Note moyenne", ar: "متوسط التقييم", en: "Average rating" },
+  "feat.delivery.t": { fr: "Livraison 58 wilayas", ar: "توصيل إلى 58 ولاية", en: "58-wilaya delivery" },
+  "feat.delivery.d": { fr: "Expédié partout en Algérie, avec suivi de commande en temps réel.", ar: "شحن إلى كل الجزائر مع تتبّع الطلب لحظياً.", en: "Shipped across Algeria with real-time order tracking." },
+  "feat.cod.t": { fr: "Paiement à la livraison", ar: "الدفع عند الاستلام", en: "Cash on delivery" },
+  "feat.cod.d": { fr: "Règle en espèces à la réception. Aucun paiement en avance.", ar: "ادفع نقداً عند الاستلام. لا دفع مسبق.", en: "Pay cash on arrival. No upfront payment." },
+  "feat.warranty.t": { fr: "Garantie officielle", ar: "ضمان رسمي", en: "Official warranty" },
+  "feat.warranty.d": { fr: "Produits 100% authentiques, couverts par la garantie constructeur.", ar: "منتجات أصلية 100% بضمان المُصنّع.", en: "100% authentic products, covered by the maker's warranty." },
+  "feat.service.t": { fr: "Montage & SAV", ar: "التركيب والصيانة", en: "Assembly & support" },
+  "feat.service.d": { fr: "PC assemblé, testé sous charge, et une équipe qui répond vite.", ar: "حاسوب مُركّب ومُختبر وفريق يردّ بسرعة.", en: "PC assembled, stress-tested, and a team that replies fast." },
+
+  "sec.test.divider": { fr: "Avis clients", ar: "آراء العملاء", en: "Reviews" },
+  "sec.test.eyebrow": { fr: "Ils nous ont fait confiance", ar: "وثقوا بنا", en: "They trusted us" },
+  "sec.test.title": { fr: "Notés 4.9/5 par la communauté.", ar: "تقييم 4.9/5 من المجتمع.", en: "Rated 4.9/5 by the community." },
+  "sec.test.badge": { fr: "· 2 400+ avis vérifiés", ar: "· +2400 تقييم موثّق", en: "· 2,400+ verified reviews" },
+  "rev.1": { fr: "Commande livrée à Oran en 48h, PC monté nickel. Service au top.", ar: "وصل الطلب إلى وهران خلال 48 ساعة، الحاسوب مُركّب بإتقان. خدمة ممتازة.", en: "Delivered to Oran in 48h, PC built perfectly. Top service." },
+  "rev.2": { fr: "Enfin un site sérieux en Algérie. Paiement à la livraison, ça rassure.", ar: "أخيراً موقع جدّي في الجزائر. الدفع عند الاستلام يطمئن.", en: "Finally a serious store in Algeria. Cash on delivery is reassuring." },
+  "rev.3": { fr: "Carte graphique authentique, avec facture et garantie. Je recommande.", ar: "بطاقة رسومية أصلية مع فاتورة وضمان. أنصح بها.", en: "Authentic GPU, with invoice and warranty. Recommended." },
+  "rev.4": { fr: "Le configurateur est génial, ils ont monté ma config exactement.", ar: "أداة التجميع رائعة، ركّبوا تجميعتي بالضبط.", en: "The builder is great, they assembled my build exactly." },
+  "rev.5": { fr: "Support réactif en darija, ils m'ont aidé à bien choisir. Merci APL TECH.", ar: "دعم سريع بالدارجة، ساعدوني في الاختيار. شكراً APL TECH.", en: "Responsive support in darija, they helped me choose. Thanks APL TECH." },
+  "rev.6": { fr: "Prix corrects et livraison jusqu'à Béjaïa. Très satisfait du tout.", ar: "أسعار معقولة وتوصيل حتى بجاية. راضٍ تماماً.", en: "Fair prices and delivery to Béjaïa. Very satisfied." },
+
+  "nl.eyebrow": { fr: "Newsletter", ar: "النشرة البريدية", en: "Newsletter" },
+  "nl.title": { fr: "Reste dans la partie.", ar: "ابقَ في اللعبة.", en: "Stay in the game." },
+  "nl.desc": { fr: "Drops, restocks et promos avant tout le monde. Un seul email par semaine — pas de spam, promis.", ar: "إصدارات وتوفّر جديد وعروض قبل الجميع. بريد واحد أسبوعياً — بلا إزعاج، وعد.", en: "Drops, restocks and deals before everyone. One email a week — no spam, promise." },
+  "nl.placeholder": { fr: "ton@email.com", ar: "بريدك@email.com", en: "you@email.com" },
+  "nl.cta": { fr: "Je m’inscris", ar: "اشترك", en: "Subscribe" },
+  "nl.note": { fr: "Déjà 18 000 gamers inscrits", ar: "أكثر من 18,000 لاعب مشترك", en: "18,000 gamers already subscribed" },
+
+  // ── footer ──
+  "foot.brandDesc": { fr: "Le matériel informatique & gaming, livré et garanti partout en Algérie. Monté avec soin par des passionnés.", ar: "عتاد الكمبيوتر والألعاب، يُوصَّل ويُضمَن في كل الجزائر. مُجمَّع بعناية على يد شغوفين.", en: "Computer & gaming hardware, delivered and warrantied across Algeria. Built with care by enthusiasts." },
+  "foot.shop": { fr: "Boutique", ar: "المتجر", en: "Shop" },
+  "foot.help": { fr: "Aide", ar: "المساعدة", en: "Help" },
+  "foot.company": { fr: "Société", ar: "الشركة", en: "Company" },
+  "foot.link.delivery": { fr: "Livraison", ar: "التوصيل", en: "Delivery" },
+  "foot.link.returns": { fr: "Retours", ar: "الإرجاع", en: "Returns" },
+  "foot.link.warranty": { fr: "Garantie", ar: "الضمان", en: "Warranty" },
+  "foot.link.faq": { fr: "FAQ", ar: "الأسئلة الشائعة", en: "FAQ" },
+  "foot.link.track": { fr: "Suivi de commande", ar: "تتبّع الطلب", en: "Track order" },
+  "foot.link.about": { fr: "À propos", ar: "من نحن", en: "About" },
+  "foot.link.stores": { fr: "Nos magasins", ar: "متاجرنا", en: "Our stores" },
+  "foot.link.careers": { fr: "Carrières", ar: "الوظائف", en: "Careers" },
+  "foot.link.contact": { fr: "Contact", ar: "اتصل بنا", en: "Contact" },
+  "foot.link.blog": { fr: "Blog", ar: "المدوّنة", en: "Blog" },
+  "foot.made": { fr: "Fait avec soin en Algérie", ar: "صُنع بعناية في الجزائر", en: "Made with care in Algeria" },
+  "foot.legal": { fr: "Mentions légales", ar: "إشعار قانوني", en: "Legal notice" },
+  "foot.terms": { fr: "CGV", ar: "الشروط", en: "Terms" },
+  "foot.privacy": { fr: "Confidentialité", ar: "الخصوصية", en: "Privacy" },
+
+  // ── cart drawer / page ──
+  "cart.empty": { fr: "Ton panier est vide.", ar: "سلّتك فارغة.", en: "Your cart is empty." },
+  "cart.viewCart": { fr: "Voir le panier", ar: "عرض السلة", en: "View cart" },
+  "cart.codNote": { fr: "Paiement à la livraison · 58 wilayas", ar: "الدفع عند الاستلام · 58 ولاية", en: "Cash on delivery · 58 wilayas" },
+  "cart.title": { fr: "Panier", ar: "السلة", en: "Cart" },
+  "cart.items": { fr: "article", ar: "منتج", en: "item" },
+  "cart.itemsP": { fr: "articles", ar: "منتجات", en: "items" },
+  "cart.empty.desc": { fr: "Parcours le catalogue et trouve ta prochaine machine.", ar: "تصفّح الكتالوج واعثر على آلتك القادمة.", en: "Browse the catalogue and find your next machine." },
+  "cart.explore": { fr: "Explorer le catalogue", ar: "استكشف الكتالوج", en: "Explore the catalogue" },
+  "cart.summary": { fr: "Récapitulatif", ar: "ملخّص الطلب", en: "Summary" },
+  "cart.delivery": { fr: "Livraison", ar: "التوصيل", en: "Delivery" },
+  "cart.free": { fr: "Gratuite", ar: "مجاني", en: "Free" },
+  "cart.toFree1": { fr: "Plus que", ar: "تبقّى", en: "Only" },
+  "cart.toFree2": { fr: "pour la livraison gratuite.", ar: "للحصول على توصيل مجاني.", en: "away from free delivery." },
+  "cart.checkout": { fr: "Passer la commande", ar: "إتمام الطلب", en: "Place order" },
+  "cart.placed.title": { fr: "Commande confirmée !", ar: "تم تأكيد الطلب!", en: "Order confirmed!" },
+  "cart.placed.desc": { fr: "Merci. Un conseiller APL TECH t’appelle dans l’heure pour confirmer la livraison. Paiement à la réception.", ar: "شكراً. سيتّصل بك مستشار APL TECH خلال ساعة لتأكيد التوصيل. الدفع عند الاستلام.", en: "Thank you. A APL TECH advisor will call you within the hour to confirm delivery. Pay on arrival." },
+
+  // ── catalogue ──
+  "cata.crumb": { fr: "Catalogue", ar: "الكتالوج", en: "Catalogue" },
+  "cata.title": { fr: "Le catalogue.", ar: "الكتالوج.", en: "The catalogue." },
+  "cata.subtitle": { fr: "Composants, machines complètes et périphériques — filtrés pour trouver exactement ce qu'il te faut.", ar: "مكوّنات وأجهزة كاملة وملحقات — مُصنَّفة لتجد ما تحتاجه بالضبط.", en: "Components, complete machines and peripherals — filtered to find exactly what you need." },
+  "cata.result": { fr: "résultat", ar: "نتيجة", en: "result" },
+  "cata.results": { fr: "résultats", ar: "نتائج", en: "results" },
+  "cata.category": { fr: "Catégorie", ar: "الفئة", en: "Category" },
+  "cata.brand": { fr: "Marque", ar: "العلامة", en: "Brand" },
+  "cata.price": { fr: "Prix", ar: "السعر", en: "Price" },
+  "cata.allPrices": { fr: "Tous les prix", ar: "كل الأسعار", en: "All prices" },
+  "cata.lt50": { fr: "Moins de 50 000 DA", ar: "أقل من 50,000 دج", en: "Under 50,000 DA" },
+  "cata.mid": { fr: "50 000 – 150 000 DA", ar: "50,000 – 150,000 دج", en: "50,000 – 150,000 DA" },
+  "cata.gt150": { fr: "Plus de 150 000 DA", ar: "أكثر من 150,000 دج", en: "Over 150,000 DA" },
+  "cata.inStockOnly": { fr: "En stock uniquement", ar: "المتوفّر فقط", en: "In stock only" },
+  "cata.reset": { fr: "Réinitialiser les filtres", ar: "إعادة ضبط الفلاتر", en: "Reset filters" },
+  "cata.filters": { fr: "Filtres", ar: "الفلاتر", en: "Filters" },
+  "cata.sort": { fr: "Trier :", ar: "ترتيب:", en: "Sort:" },
+  "cata.sort.pop": { fr: "Populaires", ar: "الأكثر شيوعاً", en: "Popular" },
+  "cata.sort.asc": { fr: "Prix croissant", ar: "السعر تصاعدي", en: "Price: low to high" },
+  "cata.sort.desc": { fr: "Prix décroissant", ar: "السعر تنازلي", en: "Price: high to low" },
+  "cata.sort.rating": { fr: "Mieux notés", ar: "الأعلى تقييماً", en: "Top rated" },
+  "cata.products": { fr: "produit", ar: "منتج", en: "product" },
+  "cata.productsP": { fr: "produits", ar: "منتج", en: "products" },
+  "cata.none": { fr: "Aucun produit", ar: "لا يوجد منتج", en: "No products" },
+  "cata.noneDesc": { fr: "Essaie d’élargir tes filtres.", ar: "جرّب توسيع الفلاتر.", en: "Try widening your filters." },
+  "cata.seeN1": { fr: "Voir", ar: "عرض", en: "View" },
+
+  // ── product detail ──
+  "pd.specs": { fr: "Caractéristiques", ar: "المواصفات", en: "Specifications" },
+  "pd.buy": { fr: "Acheter", ar: "اشترِ الآن", en: "Buy now" },
+  "pd.inStock": { fr: "En stock — expédié sous 24 h", ar: "متوفّر — يُشحن خلال 24 ساعة", en: "In stock — ships within 24h" },
+  "pd.save": { fr: "Économise", ar: "وفّر", en: "Save" },
+  "pd.related": { fr: "Dans la même catégorie", ar: "من نفس الفئة", en: "In the same category" },
+  "pd.authentic": { fr: "Produit neuf, scellé, facture incluse.", ar: "منتج جديد، مغلّف، مع الفاتورة.", en: "Brand new, sealed, invoice included." },
+
+  // ── configurator ──
+  "conf.crumb": { fr: "Configurateur", ar: "أداة التجميع", en: "PC Builder" },
+  "conf.title": { fr: "Assemble ta machine.", ar: "اصنع آلتك.", en: "Build your machine." },
+  "conf.subtitle": { fr: "Choisis chaque pièce, on vérifie la compatibilité, on assemble et on teste. Montage offert sur toute config.", ar: "اختر كل قطعة، نتحقّق من التوافق، نركّب ونختبر. التركيب مجاني على كل تجميعة.", en: "Pick each part, we check compatibility, assemble and test. Free assembly on every build." },
+  "conf.config": { fr: "Ta config", ar: "تجميعتك", en: "Your build" },
+  "conf.assembly": { fr: "Montage & test offerts", ar: "التركيب والاختبار مجاناً", en: "Free assembly & testing" },
+  "conf.warranty": { fr: "Garantie 2 ans sur la config", ar: "ضمان سنتان على التجميعة", en: "2-year warranty on the build" },
+  "conf.added": { fr: "PC sur-mesure", ar: "حاسوب حسب الطلب", en: "Custom PC" },
+
+  // ── parts ──
+  "part.cpu": { fr: "Processeur", ar: "المعالج", en: "Processor" },
+  "part.gpu": { fr: "Carte graphique", ar: "بطاقة الرسوميات", en: "Graphics card" },
+  "part.mb": { fr: "Carte mère", ar: "اللوحة الأم", en: "Motherboard" },
+  "part.ram": { fr: "Mémoire", ar: "الذاكرة", en: "Memory" },
+  "part.ssd": { fr: "Stockage", ar: "التخزين", en: "Storage" },
+  "part.cooling": { fr: "Refroidissement", ar: "التبريد", en: "Cooling" },
+  "part.case": { fr: "Boîtier", ar: "الصندوق", en: "Case" },
+  "part.psu": { fr: "Alimentation", ar: "مزوّد الطاقة", en: "Power supply" },
+
+  // ── search ──
+  "search.placeholder": { fr: "Rechercher un GPU, un CPU, un portable…", ar: "ابحث عن بطاقة، معالج، حاسوب…", en: "Search a GPU, CPU, laptop…" },
+  "search.popular": { fr: "Recherches populaires", ar: "عمليات بحث شائعة", en: "Popular searches" },
+  "search.results": { fr: "Résultats", ar: "النتائج", en: "Results" },
+  "search.none": { fr: "Aucun résultat pour", ar: "لا نتائج لـ", en: "No results for" },
+  "search.all": { fr: "Voir tous les résultats", ar: "عرض كل النتائج", en: "See all results" },
+
+  // ── checkout ──
+  "co.crumb": { fr: "Commande", ar: "الطلب", en: "Checkout" },
+  "co.title": { fr: "Finaliser ta commande", ar: "إتمام طلبك", en: "Complete your order" },
+  "co.subtitle": { fr: "Plus que quelques infos et c'est livré. Paiement à la livraison, sans avance.", ar: "بعض المعلومات فقط وسيُوصَّل. الدفع عند الاستلام دون تسبيق.", en: "A few details and it's on its way. Cash on delivery, no upfront payment." },
+  "co.contact": { fr: "Coordonnées", ar: "معلومات الاتصال", en: "Contact details" },
+  "co.firstName": { fr: "Prénom", ar: "الاسم", en: "First name" },
+  "co.lastName": { fr: "Nom", ar: "اللقب", en: "Last name" },
+  "co.phone": { fr: "Téléphone", ar: "رقم الهاتف", en: "Phone" },
+  "co.email": { fr: "Email (optionnel)", ar: "البريد الإلكتروني (اختياري)", en: "Email (optional)" },
+  "co.delivery": { fr: "Livraison", ar: "التوصيل", en: "Delivery" },
+  "co.wilaya": { fr: "Wilaya", ar: "الولاية", en: "Wilaya" },
+  "co.wilayaPick": { fr: "Choisis ta wilaya", ar: "اختر ولايتك", en: "Select your wilaya" },
+  "co.commune": { fr: "Commune", ar: "البلدية", en: "Municipality" },
+  "co.address": { fr: "Adresse complète", ar: "العنوان الكامل", en: "Full address" },
+  "co.method": { fr: "Mode de livraison", ar: "طريقة التوصيل", en: "Delivery method" },
+  "co.home": { fr: "À domicile", ar: "إلى المنزل", en: "Home delivery" },
+  "co.homeDesc": { fr: "Livré à ton adresse", ar: "يُوصَّل إلى عنوانك", en: "Delivered to your door" },
+  "co.desk": { fr: "Stop Desk", ar: "نقطة الاستلام", en: "Pickup point" },
+  "co.deskDesc": { fr: "Retrait au bureau le plus proche", ar: "الاستلام من أقرب مكتب", en: "Collect at nearest office" },
+  "co.payment": { fr: "Paiement", ar: "الدفع", en: "Payment" },
+  "co.codDesc": { fr: "Paie en espèces à la réception. Recommandé.", ar: "ادفع نقداً عند الاستلام. مُوصى به.", en: "Pay cash on arrival. Recommended." },
+  "co.cardSoon": { fr: "Carte CIB / Edahabia — bientôt disponible", ar: "بطاقة CIB / الذهبية — قريباً", en: "CIB / Edahabia card — coming soon" },
+  "co.confirm": { fr: "Confirmer la commande", ar: "تأكيد الطلب", en: "Confirm order" },
+  "co.back": { fr: "Retour au panier", ar: "العودة إلى السلة", en: "Back to cart" },
+  "co.fill": { fr: "Merci de remplir tous les champs requis.", ar: "يرجى ملء جميع الحقول المطلوبة.", en: "Please fill in all required fields." },
+  "co.itemsTitle": { fr: "Ta commande", ar: "طلبك", en: "Your order" },
+  "co.placedTo": { fr: "Livraison à", ar: "التوصيل إلى", en: "Delivery to" },
+};
+
+export function translate(key: string, l: Locale): string {
+  const e = D[key];
+  if (!e) return key;
+  return e[l] ?? e.fr;
+}
+
+export function catName(key: string, l: Locale): string {
+  return translate(`cat.${key}`, l);
+}

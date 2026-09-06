@@ -1,0 +1,1220 @@
+/* ── Type: Cabinet Grotesk (display) · General Sans (body) · JetBrains Mono (labels) ── */
+@import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@500,700,800&f[]=general-sans@300,400,500,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+@import "tailwindcss";
+
+/* ───────────────────────────  Design tokens (LIGHT)  ─────────────────── */
+@theme {
+  /* Surfaces — warm paper */
+  --color-paper: #f3f1ea;
+  --color-cloud: #fbfaf6;
+  --color-white: #ffffff;
+  --color-line: #e3dfd4;
+  --color-line-soft: #ece9df;
+
+  /* Ink — warm near-black */
+  --color-ink: #17160f;
+  --color-mute: #6c6a61;
+  --color-faint: #a4a195;
+
+  /* Brand gradient stops — used only by .bg-accent-gradient* */
+  --color-accent-deep: #6e2382;
+  --color-accent-mid: #76218a;
+  --color-accent-bright: #8f178e;
+
+  /* Flat accent — a lighter tone of the same purple, tuned for legibility
+     at small sizes (mono labels, icons, borders, tints). */
+  --color-accent: #922da9;
+
+  /* The same accent, lifted for dark grounds. --color-accent only reaches
+     about 3.5:1 against a near-black panel, which small text cannot carry;
+     this clears 6:1 while staying recognisably the same purple. */
+  --color-accent-lit: #c47ad8;
+
+  /* Fonts */
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ───────────────────────────────  Base  ──────────────────────────────── */
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* ── Arabic ───────────────────────────────────────────────────────────────
+   Letter-spacing prises apart the joined forms of a cursive script: the same
+   tracking that reads as deliberate in Latin reads as broken here, and the
+   negative tracking the display sizes carry is worse again. Nothing in RTL
+   keeps its tracking, so a label added later cannot reintroduce the problem
+   by copying a Latin class. */
+[dir="rtl"] body,
+[dir="rtl"] body * {
+  letter-spacing: normal;
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-paper);
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d0c4;
+  border: 3px solid var(--color-paper);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+}
+
+/* ─────────────────────────  Helper utilities  ────────────────────────── */
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+
+/* accent gradient — dark purple → purple → magenta.
+   Worth using only on surfaces big enough to read the ramp; small marks
+   keep the flat --color-accent. */
+.bg-accent-gradient {
+  background-color: var(--color-accent-mid);
+  background-image: linear-gradient(
+    135deg,
+    var(--color-accent-deep) 0%,
+    var(--color-accent-mid) 52%,
+    var(--color-accent-bright) 100%
+  );
+}
+.bg-accent-gradient-x {
+  background-color: var(--color-accent-mid);
+  background-image: linear-gradient(
+    to right,
+    var(--color-accent-deep) 0%,
+    var(--color-accent-mid) 52%,
+    var(--color-accent-bright) 100%
+  );
+}
+[dir="rtl"] .bg-accent-gradient-x {
+  background-image: linear-gradient(
+    to left,
+    var(--color-accent-deep) 0%,
+    var(--color-accent-mid) 52%,
+    var(--color-accent-bright) 100%
+  );
+}
+
+/* accent button — flat-looking purple with a soft gradient for depth.
+   The two stops are close in tone, so it reads as a solid, not a ramp.
+   Hover just brightens and lifts slightly. */
+.btn-accent {
+  background-color: var(--color-accent-mid);
+  background-image: linear-gradient(
+    120deg,
+    var(--color-accent-deep),
+    var(--color-accent-bright)
+  );
+  color: #fff;
+  transition:
+    filter 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn-accent:hover {
+  filter: brightness(1.14);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--color-accent-bright) 75%, transparent);
+}
+.btn-accent:active {
+  transform: translateY(0);
+  filter: brightness(0.96);
+  transition-duration: 0.08s;
+}
+.btn-accent:focus-visible {
+  outline: 2px solid var(--color-accent-bright);
+  outline-offset: 3px;
+}
+.btn-accent:disabled {
+  background-image: none;
+  background-color: var(--color-faint);
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-accent,
+  .btn-accent:hover,
+  .btn-accent:active {
+    transform: none;
+  }
+}
+
+/* footer neon — RGB LED strip along the top edge, colours travelling L→R.
+   The wrapper clips; ::before is the 2px LED line and ::after is its blurred
+   spill, both 200% wide with a one-container-wide repeating rainbow tile, so
+   translating exactly one tile loops seamlessly. */
+.footer-neon {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 150px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.footer-neon::before,
+.footer-neon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 200%;
+  background-image: linear-gradient(
+    90deg,
+    #ff2d55,
+    #ff9500,
+    #ffee00,
+    #34ff6a,
+    #00e5ff,
+    #4b6cff,
+    #c33cff,
+    #ff2d55
+  );
+  background-size: 50% 100%;
+  background-repeat: repeat-x;
+  animation: neon-rgb 7s linear infinite;
+}
+/* the LED itself */
+.footer-neon::before {
+  top: 0;
+  height: 2px;
+}
+/* light spilling down into the footer */
+.footer-neon::after {
+  top: 0;
+  height: 150px;
+  opacity: 0.22;
+  /* feathered with a mask rather than filter: blur() — this element animates
+     forever, and a blur would be re-rasterised on every frame */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+}
+
+@keyframes neon-rgb {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ── Product card hover ───────────────────────────────────────────────────
+   The card switches on rather than just moving: the shot takes a purple wash
+   from below, the frame takes the accent, and the whole thing lifts over a
+   glow of the same colour. It is the language the neon frame and the
+   builder's lit strip already use, which is the one thing every product on
+   this shop has in common.
+
+   Lift and glow are separate properties deliberately. The transform is
+   composited so the movement stays smooth; the shadow repaints, but only for
+   the one card under the cursor. */
+.product-card {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.product-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Glow and frame colour both sit on the image, not on the card.
+
+   The card box also contains the caption underneath, which has no background
+   of its own — a shadow cast by that box outlines the text as a panel, and
+   its lower edge reads as a stray rule under the product. On the frame the
+   glow follows the image's own rounded rect, which is the shape it should
+   look like it is coming from. */
+.product-frame {
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.4s ease;
+}
+.product-card:hover .product-frame {
+  border-color: rgb(146 45 169 / 0.45);
+  box-shadow:
+    0 20px 38px -24px rgb(146 45 169 / 0.6),
+    0 5px 14px -9px rgb(23 22 15 / 0.2);
+}
+
+/* The wash sits over the image and under the badges, so nothing it tints
+   becomes harder to read.
+
+   Weighted toward the top of its own range rather than the bottom: the
+   add-to-cart bar slides up over the lowest fifth of the card, so a gradient
+   that peaked at 0% would spend its strength underneath it and read as
+   nothing. The deepest visible tone lands just above where that bar stops. */
+.product-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    to top,
+    rgb(110 35 130 / 0.58) 0%,
+    rgb(126 30 138 / 0.52) 26%,
+    rgb(146 45 169 / 0.2) 62%,
+    rgb(146 45 169 / 0.08) 100%
+  );
+  transition: opacity 0.45s ease;
+}
+.group:hover .product-wash {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card:hover {
+    transform: none;
+  }
+}
+
+/* ── Page transition curtain ──────────────────────────────────────────────
+   Three phases driven by data-phase, so the panel covers the viewport BEFORE
+   the route changes and only lifts once the new page is mounted behind it.
+   Durations mirror the constants in PageTransition.tsx. */
+.page-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--color-white);
+  will-change: transform;
+  transform: translateY(100%);
+}
+.page-curtain[data-phase="cover"] {
+  animation: curtain-cover 0.5s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+.page-curtain[data-phase="hold"] {
+  transform: translateY(0);
+}
+.page-curtain[data-phase="reveal"] {
+  animation: curtain-reveal 0.5s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+
+@keyframes curtain-cover {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes curtain-reveal {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+
+/* ── the mark, drawing itself while the curtain holds ── */
+.curtain-logo {
+  width: min(58vw, 380px);
+  opacity: 0;
+  animation:
+    curtain-logo-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.34s forwards,
+    apl-neon-pulse 1.4s ease-in-out 0.34s infinite;
+}
+.page-curtain[data-phase="reveal"] .curtain-logo {
+  animation: curtain-logo-out 0.3s ease-in forwards;
+}
+
+@keyframes curtain-logo-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes curtain-logo-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.06); }
+}
+
+/* pathLength="1" normalises every path, so one dash length draws them all */
+.curtain-stroke path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: curtain-draw 0.56s cubic-bezier(0.22, 1, 0.36, 1) 0.38s forwards;
+}
+.curtain-stroke path:nth-child(2) { animation-delay: 0.44s; }
+.curtain-stroke path:nth-child(3) { animation-delay: 0.5s; }
+.curtain-stroke path:nth-child(4) { animation-delay: 0.56s; }
+
+@keyframes curtain-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.curtain-fill path {
+  opacity: 0;
+  animation: curtain-bloom 0.34s ease-out 0.7s forwards;
+}
+.curtain-fill path:nth-child(2) { animation-delay: 0.74s; }
+.curtain-fill path:nth-child(3) { animation-delay: 0.78s; }
+.curtain-fill path:nth-child(4) { animation-delay: 0.82s; }
+
+.curtain-tech {
+  opacity: 0;
+  animation: curtain-bloom 0.34s cubic-bezier(0.22, 1, 0.36, 1) 0.86s forwards;
+}
+
+@keyframes curtain-bloom {
+  to { opacity: 1; }
+}
+
+/* neon halo — drop-shadow follows the glyph outline, box-shadow would halo
+   the bounding box instead */
+@keyframes apl-neon-pulse {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 45%, transparent))
+      drop-shadow(0 0 18px color-mix(in srgb, var(--color-accent-bright) 35%, transparent));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 11px color-mix(in srgb, var(--color-accent) 72%, transparent))
+      drop-shadow(0 0 34px color-mix(in srgb, var(--color-accent-bright) 60%, transparent));
+  }
+}
+
+/* ── GPU plate ─────────────────────────────────────────────────────────────
+   The card is drawn the way a hardware manual draws one: ink on the page,
+   no shading, and every part read off a line weight rather than a fill.
+
+   Four weights carry the whole illustration. w1 is the silhouette — the only
+   edge with paper on the far side of it. w2 is a part against the card, w3
+   an edge within a part, w4 the repeated texture (fins, contacts, ring
+   struts). Reading them in that order is how the eye separates a heatsink
+   from the shell without a single tone.
+
+   They are USER UNITS, and must stay that way. vector-effect:
+   non-scaling-stroke is the obvious reach here — it would pin the weights to
+   screen pixels — but it also moves dash measurement into device space while
+   pathLength="1" keeps normalising in user units. The two disagree by
+   exactly the render scale, so the draw-on below leaves every outline cut
+   short, worse the further the drawing is scaled up: fine at 75% browser
+   zoom, most of the card missing at 150%. In user units the drawing simply
+   scales as one object, which is what an illustration should do anyway.
+
+   The small-screen set is heavier because the viewBox crops there too, so the
+   same user unit lands about 2.3x smaller on screen. */
+.gpu-svg {
+  display: block;
+  overflow: visible;
+  color: var(--color-ink);
+  --w1: 1.8;
+  --w2: 1.18;
+  --w3: 0.8;
+  --w4: 0.52;
+}
+@media (max-width: 640px) {
+  .gpu-svg {
+    --w1: 2.5;
+    --w2: 1.7;
+    --w3: 1.25;
+    --w4: 0.8;
+  }
+}
+
+.gpu-ink {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--w2);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.gpu-w1 { stroke-width: var(--w1); }
+.gpu-w3 { stroke-width: var(--w3); }
+/* texture sits back a little, so a comb of forty fins reads as one surface
+   rather than forty separate parts */
+.gpu-w4 {
+  stroke-width: var(--w4);
+  opacity: 0.55;
+}
+/* filled with the page: an overlapping blade hides the one beneath it, and
+   the bracket hides the corner behind it, with no hidden-line work */
+.gpu-blade,
+.gpu-plate { fill: var(--color-paper); }
+
+/* ── inking ───────────────────────────────────────────────────────────────
+   The plate draws itself: structural outlines run their stroke out from
+   nothing, then each part's texture fades in behind the line that contains
+   it. Only the ~30 structural strokes animate a dash offset — the ~250
+   texture strokes ride on their group's opacity instead, which is one
+   composited layer each rather than a repaint per line. */
+.gpu[data-armed] .gpu-ink {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+/* Texture is never drawn on, so it must not inherit the dash either: these
+   have no pathLength, which would make the 1 above a one-user-unit dash and
+   render every fin and contact as a dotted line. */
+.gpu[data-armed] .gpu-detail .gpu-ink {
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+}
+.gpu[data-armed] .gpu-detail { opacity: 0; }
+
+/* Structural strokes only — a part's own children, plus the fan circles one
+   group deeper. Everything under .gpu-detail is excluded, which keeps this to
+   ~16 dash animations instead of 145. */
+.gpu[data-drawn] .gpu-part > .gpu-ink,
+.gpu[data-drawn] .gpu-part > g:not(.gpu-detail) > .gpu-ink {
+  animation: gpu-draw 0.9s cubic-bezier(0.33, 0.8, 0.4, 1) var(--d, 0s) forwards;
+}
+.gpu[data-drawn] .gpu-detail {
+  animation: gpu-ink-in 0.5s ease-out var(--d, 0s) forwards;
+}
+
+@keyframes gpu-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes gpu-ink-in {
+  to { opacity: 1; }
+}
+
+/* ── callout ticks ──
+   pathLength="1" normalises each leader, so one dash length draws them all
+   regardless of how long the run is. Each tag waits on its own --cd. */
+/* same rule as the plate: pathLength normalisation and non-scaling-stroke
+   cannot both be in play, so the leaders scale with the drawing too */
+.gpu-tag-line {
+  stroke: var(--color-accent);
+  stroke-width: 1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.gpu-tag-dot {
+  fill: var(--color-accent);
+}
+.gpu-tag-text {
+  fill: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+/* The labels live in the SVG, so they shrink with it. Below ~640px the whole
+   drawing renders at ~0.35 scale, which puts 12px user units at 4px on screen
+   — unreadable, and there is no room to scale them up without the callouts
+   colliding. The plate carries the section on its own at that size. */
+@media (max-width: 640px) {
+  .gpu-tag { display: none; }
+}
+
+.gpu[data-armed] .gpu-tag-dot,
+.gpu[data-armed] .gpu-tag-text {
+  opacity: 0;
+}
+.gpu[data-drawn] .gpu-tag-line {
+  animation: gpu-tick 0.45s cubic-bezier(0.22, 1, 0.36, 1) var(--cd) forwards;
+}
+.gpu[data-drawn] .gpu-tag-dot {
+  animation: gpu-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) var(--cd) both;
+}
+.gpu[data-drawn] .gpu-tag-text {
+  animation: gpu-label 0.4s ease-out calc(var(--cd) + 0.28s) both;
+}
+
+@keyframes gpu-tick {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes gpu-pop {
+  from { opacity: 0; transform: scale(0.2); transform-box: fill-box; transform-origin: center; }
+  to { opacity: 1; transform: scale(1); transform-box: fill-box; transform-origin: center; }
+}
+@keyframes gpu-label {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── the plate breathes, so it never reads as a flat sticker ── */
+.gpu[data-live] .gpu-body {
+  animation: gpu-float 8s ease-in-out 2.4s infinite;
+}
+@keyframes gpu-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ── fans ──
+   Slower than the shaded version ran: outlined blades strobe against each
+   other if they turn quickly, and the drawing has to stay legible. */
+.gpu[data-live] .gpu-spin-a { animation: gpu-spin 5.4s linear 1.9s infinite; }
+.gpu[data-live] .gpu-spin-b { animation: gpu-spin 6.8s linear 1.9s infinite reverse; }
+@keyframes gpu-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gpu[data-armed] .gpu-ink,
+  .gpu[data-armed] .gpu-detail {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  .gpu[data-armed] .gpu-tag-dot,
+  .gpu[data-armed] .gpu-tag-text {
+    opacity: 1;
+  }
+  .gpu[data-drawn] .gpu-part > .gpu-ink,
+  .gpu[data-drawn] .gpu-part > g:not(.gpu-detail) > .gpu-ink,
+  .gpu[data-drawn] .gpu-detail,
+  .gpu[data-live] .gpu-body,
+  .gpu[data-live] .gpu-spin-a,
+  .gpu[data-live] .gpu-spin-b,
+  .gpu[data-drawn] .gpu-tag-line,
+  .gpu[data-drawn] .gpu-tag-dot,
+  .gpu[data-drawn] .gpu-tag-text {
+    animation: none;
+  }
+  .gpu-tag-line { stroke-dashoffset: 0; }
+}
+
+/* ── Scroll reveals ────────────────────────────────────────────────────────
+   Two devices, matched to the two type roles: display words rise from behind
+   a clipping edge, blocks get wiped up from their own bottom edge. The hidden
+   state is gated on [data-armed], which is client-only, so nothing can be
+   left invisible if JS never runs. */
+
+/* words ------------------------------------------------------------------ */
+.rv-w {
+  display: inline-block;
+  overflow: hidden;
+  /* descenders (g, q, ç) would be clipped by the overflow without this */
+  padding-bottom: 0.16em;
+  margin-bottom: -0.16em;
+}
+.rv-wi {
+  display: inline-block;
+  will-change: transform;
+}
+[data-rv-split][data-armed] .rv-wi {
+  opacity: 0;
+  transform: translateY(112%) rotate(3.5deg);
+}
+[data-rv-split][data-in] .rv-wi {
+  animation: rv-rise 0.86s cubic-bezier(0.16, 0.84, 0.28, 1)
+    calc(var(--rv-d, 0s) + var(--i, 0) * 58ms) both;
+}
+
+@keyframes rv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(112%) rotate(3.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* blocks ----------------------------------------------------------------- */
+[data-rv-block][data-armed] {
+  opacity: 0;
+  clip-path: inset(0 0 100% 0);
+}
+[data-rv-block][data-in] {
+  animation: rv-wipe 0.9s cubic-bezier(0.16, 0.84, 0.28, 1) var(--rv-d, 0s) both;
+}
+
+@keyframes rv-wipe {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(20px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0% 0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-rv-split][data-armed] .rv-wi,
+  [data-rv-block][data-armed] {
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+  }
+  [data-rv-split][data-in] .rv-wi,
+  [data-rv-block][data-in] {
+    animation: none;
+  }
+}
+
+/* ── Add to cart ───────────────────────────────────────────────────────────
+   A copy of the product image arcs into the cart button. The arc is real:
+   the outer element carries X at a constant rate while the inner one
+   accelerates through Y, which traces a parabola — one element animating
+   both would only ever travel in a straight diagonal. */
+.fly {
+  position: fixed;
+  z-index: 95;
+  pointer-events: none;
+  animation: fly-x 720ms linear forwards;
+}
+.fly-arc {
+  display: block;
+  height: 100%;
+  width: 100%;
+  animation: fly-y 720ms cubic-bezier(0.55, 0, 1, 1) forwards;
+}
+.fly-img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.45);
+  animation: fly-shrink 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fly-x {
+  to { transform: translateX(var(--dx)); }
+}
+@keyframes fly-y {
+  to { transform: translateY(var(--dy)); }
+}
+@keyframes fly-shrink {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  70% { opacity: 0.95; }
+  100% { transform: scale(0.12) rotate(-12deg); opacity: 0; }
+}
+
+/* the cart button reacts when the item lands */
+.cart-bump {
+  animation: cart-bump 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.cart-badge-pop {
+  animation: cart-badge-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cart-badge-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fly { display: none; }
+  .cart-bump,
+  .cart-badge-pop { animation: none; }
+}
+
+/* ── Circular reveal ───────────────────────────────────────────────────────
+   Shared by the search and the cart: a dark circle grows from the button that
+   opened it out past the furthest viewport corner.
+
+   It animates `transform: scale` on a plain element, NOT clip-path on a
+   backdrop-filtered one. That earlier version had to re-blur the whole page
+   every frame — and this page runs several infinite animations underneath —
+   so it dropped frames badly. Scale is composited on the GPU. */
+.reveal-veil {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.reveal-circle {
+  position: fixed;
+  left: var(--ox);
+  top: var(--oy);
+  width: calc(var(--r) * 2);
+  height: calc(var(--r) * 2);
+  margin-left: calc(var(--r) * -1);
+  margin-top: calc(var(--r) * -1);
+  border-radius: 50%;
+  background: rgb(9 7 13 / 0.86);
+  transform: scale(0);
+  will-change: transform;
+  transition: transform 0.58s cubic-bezier(0.76, 0, 0.24, 1);
+  pointer-events: none;
+}
+.reveal-veil[data-open] .reveal-circle {
+  transform: scale(1);
+}
+
+.reveal-panel {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.34s ease 0.2s,
+    transform 0.44s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
+}
+.reveal-veil[data-open] .reveal-panel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* staggered entrance for rows / cards inside a revealed panel */
+.reveal-item {
+  animation: reveal-item 0.38s cubic-bezier(0.22, 1, 0.36, 1) calc(0.28s + var(--i, 0) * 55ms) both;
+}
+@keyframes reveal-item {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Neon frame ───────────────────────────────────────────────────────────
+   Purple tubing round all four edges of the screen while the cart is open.
+   It breathes rather than chases: the core line stays lit and the halo swells
+   around it, which is what reads as neon rather than as a strip of LEDs.
+
+   Core and halo are separate layers so the breath can be opacity alone. The
+   shadows are rasterised once and the animation stays on the compositor —
+   this runs for as long as the cart is open, over a page that already has
+   several animations of its own, and animating a shadow's radius instead
+   would repaint every frame. */
+.neon-frame {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  /* lit glass, then the accent and its deeper stop as bare channels, so the
+     halo below can take them at an alpha */
+  --neon-core: #d9a2ee;
+  --neon-glow: 146 45 169;
+  --neon-deep: 143 23 142;
+}
+
+/* the tube itself. It breathes too, but over a narrow range and never below
+   a lit line — the swell belongs to the halo, this only keeps the core from
+   looking pinned while the glow around it moves. */
+.neon-frame > span {
+  position: absolute;
+  background: var(--neon-core);
+  box-shadow:
+    0 0 6px 0 rgb(var(--neon-glow) / 0.9),
+    0 0 18px 2px rgb(var(--neon-glow) / 0.55);
+  animation: neon-core-breathe 3.8s ease-in-out infinite;
+}
+.neon-t,
+.neon-b {
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+.neon-t { top: 0; }
+.neon-b { bottom: 0; }
+
+.neon-l,
+.neon-r {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+.neon-l { left: 0; }
+.neon-r { right: 0; }
+
+/* the halo: shadow only, no background, so swelling the bloom never washes
+   out the core sitting under it */
+.neon-frame > span::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    0 0 34px 6px rgb(var(--neon-glow) / 0.72),
+    0 0 92px 22px rgb(var(--neon-deep) / 0.46);
+  animation: neon-breathe 3.8s ease-in-out infinite;
+}
+
+@keyframes neon-breathe {
+  0%,
+  100% { opacity: 0.12; }
+  50% { opacity: 1; }
+}
+@keyframes neon-core-breathe {
+  0%,
+  100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
+/* ── search specifics ─────────────────────────────────────────────────────
+   The search has two stages on one element tree, switched by `data-mode`:
+   `bar` docks a plain field under the header, `full` — from the first
+   keystroke — takes the whole screen. Nothing remounts between them, so
+   every difference below is a transitioned property rather than a swap. */
+.search-veil { z-index: 90; }
+/* while it is only a bar, sit under the header (z-50) so the header stays
+   live — including the icon that opened it, which then closes it again */
+.search-veil[data-mode="bar"] { z-index: 45; }
+
+/* dims the page below the header. In `full` the circle covers this, but it
+   stays put so the switch never re-lights the page underneath. */
+.search-scrim {
+  position: fixed;
+  inset: var(--head) 0 0;
+  background: rgb(9 7 13 / 0);
+  transition: background-color 0.34s ease;
+}
+.search-veil[data-open] .search-scrim { background-color: rgb(9 7 13 / 0.34); }
+/* going full it takes in the header too — left short, its edge shows as a
+   seam once the circle has painted everything below to a deeper tone */
+.search-veil[data-mode="full"] .search-scrim { top: 0; }
+
+/* the bar stays put when the stage flips: the veil never moves, and this
+   padding is what places the field, so it only eases further down */
+.search-panel {
+  position: relative;
+  padding-top: var(--head);
+  opacity: 0;
+  transform: translateY(-12px);
+  transition:
+    opacity 0.24s ease,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    padding-top 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.search-veil[data-open] .search-panel {
+  opacity: 1;
+  transform: translateY(0);
+}
+.search-veil[data-mode="full"] .search-panel {
+  padding-top: calc(var(--head) + clamp(0.75rem, 6vh, 3rem));
+  padding-bottom: 4rem;
+}
+
+/* full-bleed strip, reading as an extension of the header.
+   Going full it can't simply fade out: the circle blooms from the field, so
+   for a few frames the page around the text is still light. The keyframes
+   hand the field over to a dark ground first, then dissolve into the circle
+   — which lands on the same colour, leaving no seam where the strip was. */
+.search-sheet {
+  /* the same tint and blur the nav carries, so the two share one surface */
+  background-color: rgb(251 250 246 / 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-line);
+  box-shadow: 0 18px 40px -30px rgb(23 22 15 / 0.55);
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.search-veil[data-mode="full"] .search-sheet {
+  background-color: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+  animation: search-handoff 0.6s cubic-bezier(0.5, 0, 0.2, 1) both;
+}
+@keyframes search-handoff {
+  0% {
+    background-color: rgb(251 250 246 / 0.85);
+    border-bottom-color: var(--color-line);
+  }
+  22% {
+    background-color: rgb(9 7 13 / 0.88);
+    border-bottom-color: transparent;
+  }
+  100% {
+    background-color: rgb(9 7 13 / 0);
+    border-bottom-color: transparent;
+  }
+}
+
+/* matches the header's own container, then draws in around the results */
+.search-dock {
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  transition: max-width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 1024px) {
+  .search-dock { padding-inline: 2rem; }
+}
+.search-veil[data-mode="full"] .search-dock { max-width: 1080px; }
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-block: 0.7rem;
+  border-bottom: 1px solid transparent;
+  transition:
+    gap 0.4s ease,
+    padding 0.4s ease,
+    border-color 0.4s ease;
+}
+.search-veil[data-mode="full"] .search-field {
+  gap: 1rem;
+  padding-block: 0.25rem 1rem;
+  border-bottom-color: rgb(255 255 255 / 0.25);
+}
+.search-veil[data-mode="full"] .search-field:focus-within {
+  border-bottom-color: rgb(255 255 255 / 0.6);
+}
+
+.search-icon {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--color-faint);
+  transition:
+    width 0.4s ease,
+    height 0.4s ease,
+    color 0.3s ease;
+}
+.search-veil[data-mode="full"] .search-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgb(255 255 255 / 0.5);
+}
+
+/* one face in both stages — only the size and the colour move, so there is
+   no font swap to snap halfway through the reveal */
+.search-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  color: var(--color-ink);
+  transition:
+    font-size 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.3s ease;
+}
+.search-input:focus { outline: none; }
+.search-input::placeholder { color: var(--color-faint); font-weight: 500; }
+.search-veil[data-mode="full"] .search-input {
+  font-size: clamp(1.5rem, 4vw, 2.4rem);
+  color: #fff;
+}
+.search-veil[data-mode="full"] .search-input::placeholder {
+  color: rgb(255 255 255 / 0.35);
+}
+
+.search-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-mute);
+  transition:
+    width 0.4s ease,
+    height 0.4s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
+}
+.search-close svg {
+  width: 1rem;
+  height: 1rem;
+  transition: width 0.4s ease, height 0.4s ease;
+}
+.search-close:hover {
+  border-color: rgb(23 22 15 / 0.3);
+  color: var(--color-ink);
+}
+.search-veil[data-mode="full"] .search-close {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-color: rgb(255 255 255 / 0.3);
+  color: rgb(255 255 255 / 0.9);
+}
+.search-veil[data-mode="full"] .search-close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.search-veil[data-mode="full"] .search-close:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* the circle belongs to the full stage only — the bar shows none.
+   Specificity has to beat `.reveal-veil[data-open] .reveal-circle`. */
+.reveal-veil.search-veil[data-mode="bar"] .reveal-circle {
+  transform: scale(0);
+}
+
+.search-body { margin-top: 1.75rem; }
+
+.search-hit {
+  animation: reveal-item 0.38s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 35ms) both;
+}
+.search-fade {
+  animation: reveal-item 0.32s ease-out both;
+}
+
+/* ── cart row removal ──
+   Fades and slides the row out, then collapses the space it occupied so the
+   rows below travel up rather than snapping. max-height is animated because
+   the row's real height isn't known ahead of time; the value only has to
+   exceed any row, and the ease hides the non-linearity. */
+.cart-row {
+  overflow: hidden;
+}
+.cart-row[data-removing] {
+  pointer-events: none;
+  animation: cart-row-out 0.32s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes cart-row-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 200px;
+  }
+  55% {
+    opacity: 0;
+    transform: translateX(var(--row-out, 34px)) scale(0.96);
+    max-height: 200px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(var(--row-out, 34px)) scale(0.96);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    border-width: 0;
+  }
+}
+
+/* slide out toward the side the trash button sits on */
+[dir="rtl"] .cart-row[data-removing] {
+  --row-out: -34px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-row[data-removing] {
+    animation-duration: 0.01s;
+  }
+}
+
+/* ── mobile menu specifics ── */
+.menu-veil { z-index: 80; }
+.menu-veil .reveal-panel {
+  max-width: 520px;
+  padding: clamp(5.5rem, 16vh, 8rem) 1.5rem 4rem;
+}
+
+/* ── cart specifics ── */
+.cart-veil { z-index: 70; }
+.cart-veil .reveal-panel {
+  max-width: 780px;
+  padding: clamp(4.5rem, 12vh, 8rem) 1.25rem 4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-circle,
+  .reveal-veil[data-open] .reveal-circle {
+    transform: scale(1);
+    transition: none;
+  }
+  /* the bar stage still shows no circle — it is a dropdown, not a reveal */
+  .reveal-veil.search-veil[data-mode="bar"] .reveal-circle {
+    transform: scale(0);
+  }
+  .reveal-panel,
+  .reveal-veil[data-open] .reveal-panel,
+  .search-panel,
+  .search-veil[data-open] .search-panel {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .search-veil[data-mode="full"] .search-sheet { animation: none; }
+  .search-scrim,
+  .search-dock,
+  .search-field,
+  .search-icon,
+  .search-input,
+  .search-close,
+  .search-close svg { transition: none; }
+  .reveal-item,
+  .search-hit,
+  .search-fade { animation: none; }
+  .neon-frame > span,
+  .neon-frame > span::before { animation: none; }
+}
+
+/* subtle large grid */
+.grid-fine {
+  background-image:
+    linear-gradient(to right, var(--color-line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-line-soft) 1px, transparent 1px);
+  background-size: 76px 76px;
+}
+
+/* faint film grain */
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  z-index: 50;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ───────────────────────────  Keyframes  ─────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.animate-marquee { animation: marquee 48s linear infinite; }
+.pause-on-hover:hover,
+.pause-on-hover:hover * { animation-play-state: paused; }
+
+/* ── brand marks ──────────────────────────────────────────────────────────
+   Each logo is a mask rather than an image, so the one `currentColor` on the
+   row paints all of them and they pick up the hover like the text they
+   replaced. Their SVGs are cropped to their own ink (see lib/brands.ts), so
+   `contain` fills this box exactly and --ar is the ratio that really paints. */
+.brand-strip {
+  --brand-size: clamp(1.25rem, 2.2vw, 1.75rem);
+}
+.brand-mark {
+  display: block;
+  height: calc(var(--brand-size) * var(--k, 1));
+  aspect-ratio: var(--ar, 1);
+  background-color: currentColor;
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

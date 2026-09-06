@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300">
+  <defs>
+    <linearGradient id="aplGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6E2382"/>
+      <stop offset="50%" stop-color="#76218A"/>
+      <stop offset="100%" stop-color="#92168E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- APL TECH logo — fully editable vector -->
+  <g id="APL-symbol" fill="url(#aplGradient)">
+    <!-- Main angled A / top bar -->
+    <path d="M42 190 L108 55 Q115 42 130 42 H330 V94 H151 L101 190 Z"/>
+
+    <!-- Inner diagonal -->
+    <path d="M145 104 H204 L258 190 H201 Z"/>
+
+    <!-- Central/right P-like form -->
+    <path d="M194 104 H270 V144 H326 Q348 144 348 121 V42 H397 V126 Q397 178 344 178 H270 V190 L244 151 V104 Z"/>
+
+    <!-- Right horizontal bar -->
+    <path d="M348 190 H490 V236 H348 Z"/>
+  </g>
+
+  <g id="TECH" fill="url(#aplGradient)"
+     font-family="Montserrat, Arial, Helvetica, sans-serif"
+     font-size="43" font-weight="600" letter-spacing="18">
+    <text x="113" y="274">TECH</text>
+  </g>
+</svg>
