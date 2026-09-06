@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { RotateCcw, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
@@ -14,6 +14,8 @@ import {
   activeFilterCount,
   priceBounds,
   selectProducts,
+  parseFilters,
+  serializeFilters,
   type FilterPatch,
   type FilterState,
 } from "@/lib/catalogue";
@@ -25,7 +27,8 @@ import { ViewToggle, type View } from "./ViewToggle";
 import { LoadMore, Pagination } from "./Pagination";
 import { useMediaQuery } from "./useMediaQuery";
 
-const SORTS = ["pop", "asc", "desc", "rating"] as const;
+const SORTS = ["pop", "new", "asc", "desc", "rating"] as const;
+type SortKey = (typeof SORTS)[number];
 
 /** the house ease — a fast start that settles rather than stops */
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
@@ -36,46 +39,66 @@ export function CatalogueClient() {
   const { t, locale } = useLocale();
   const reduced = useReducedMotion();
 
-  const urlCat = params.get("cat") ?? "all";
-  const q = (params.get("q") ?? "").trim();
+  /* Everything starts from the query string, so a shared link opens on the
+     view it was copied from. */
+  const initial = useMemo(() => parseFilters(params.toString()), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [filters, setFilters] = useState({ ...NO_FILTERS, cat: urlCat });
-  const [sort, setSort] = useState<(typeof SORTS)[number]>("pop");
+  const [filters, setFilters] = useState(initial.filters);
+  const [query, setQuery] = useState(initial.q);
+  const [sort, setSort] = useState<SortKey>(
+    SORTS.includes(initial.sort as SortKey) ? (initial.sort as SortKey) : "pop",
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [view, setView] = useState<View>("grid");
   /** the top of the results column, so a page change lands there */
   const gridTop = useRef<HTMLDivElement>(null);
 
-  /* The header and the home page both link in with ?cat=…, and that has to
-     win over whatever the rail was last set to — but only when the URL itself
-     changes, or picking a category here would be undone on the next render.
-     Adjusted during render rather than in an effect: React re-runs this
-     component before committing, so the grid never paints the stale one. */
-  const [urlCatSeen, setUrlCatSeen] = useState(urlCat);
-  if (urlCat !== urlCatSeen) {
-    setUrlCatSeen(urlCat);
-    setFilters((f) => ({ ...f, cat: urlCat, specs: {} }));
-  }
-
-  /* The bar above the grid owns the term from here on. It starts from ?q= —
-     the header search still lands here with one — but typing in it filters in
-     place rather than navigating, so the grid never reloads under you. A new
-     ?q= arriving later still wins, the same way ?cat= does. */
-  const [query, setQuery] = useState(q);
-  const [urlQSeen, setUrlQSeen] = useState(q);
-  if (q !== urlQSeen) {
-    setUrlQSeen(q);
-    setQuery(q);
-  }
-
   const state: FilterState = useMemo(() => ({ ...filters, q: query }), [filters, query]);
   const patch = (next: FilterPatch) => setFilters((f) => ({ ...f, ...next }));
 
-  const clearSearch = () => {
-    setQuery("");
-    // only worth a navigation if the term is actually in the URL
-    if (q) router.push(withLocale("/catalogue", locale));
-  };
+  const clearSearch = () => setQuery("");
+
+  /* ── URL ⇄ state ──
+     One direction at a time, told apart by what we last wrote.
+
+     State → URL is debounced: typing in the search field would otherwise
+     rewrite the address bar on every keystroke. `replace` rather than `push`,
+     so tightening a filter does not bury the previous page under a dozen
+     history entries — the back button still leaves the catalogue.
+
+     URL → state only fires when the query string is something we did not
+     write, which is what an incoming link or a header ?cat= link looks like.
+     Without that test the two directions feed each other forever. */
+  const url = serializeFilters(filters, query, sort);
+
+  /* State, not a ref: this is read while rendering to decide whether an
+     incoming query string is ours or someone else's, and a ref read during
+     render is both disallowed and unreliable under concurrent rendering. */
+  const [written, setWritten] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (written === url) return;
+    const id = setTimeout(() => {
+      setWritten(url);
+      router.replace(`${withLocale("/catalogue", locale)}${url ? `?${url}` : ""}`, {
+        scroll: false,
+      });
+    }, 300);
+    return () => clearTimeout(id);
+  }, [url, written, router, locale]);
+
+  const live = params.toString();
+  const [liveSeen, setLiveSeen] = useState(live);
+  if (live !== liveSeen) {
+    setLiveSeen(live);
+    if (live !== written && live !== url) {
+      const next = parseFilters(live);
+      setWritten(live);
+      setFilters(next.filters);
+      setQuery(next.q);
+      if (SORTS.includes(next.sort as SortKey)) setSort(next.sort as SortKey);
+    }
+  }
 
   /** Back to the full catalogue — the search term is a filter here too. */
   const resetAll = () => {
@@ -91,6 +114,9 @@ export function CatalogueClient() {
     if (sort === "asc") return [...list].sort((a, b) => a.price - b.price);
     if (sort === "desc") return [...list].sort((a, b) => b.price - a.price);
     if (sort === "rating") return [...list].sort((a, b) => b.rating - a.rating);
+    // no date on a product, so "nouveautés" is the isNew flag brought forward,
+    // with the catalogue order kept underneath it
+    if (sort === "new") return [...list].sort((a, b) => Number(!!b.isNew) - Number(!!a.isNew));
     return list;
   }, [state, sort]);
 

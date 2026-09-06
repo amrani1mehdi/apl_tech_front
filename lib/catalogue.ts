@@ -231,3 +231,85 @@ export function activeFilterCount(s: FilterState, bounds: { min: number; max: nu
     specCount
   );
 }
+
+/* ── URL round-trip ───────────────────────────────────────────────────────
+   The filters live in the query string so a narrowed view is a link someone
+   can send. Everything at its default is left out entirely, which keeps a
+   plain /catalogue clean and makes the shared URL say only what was actually
+   chosen.
+
+   Separators have to be absent from the data, and that is asserted rather
+   than assumed — the first choice used a comma, which quietly broke every
+   French decimal ("2,72 GHz" split into "2" and "72 GHz"). A test now checks
+   every key and token in PRODUCTS against all three, so a new product cannot
+   corrupt a link either. */
+export const SPEC_SEP = { group: ";", key: "~", value: "|" } as const;
+
+export function serializeFilters(s: Omit<FilterState, "q">, q: string, sort: string): string {
+  const p = new URLSearchParams();
+  if (s.cat !== "all") p.set("cat", s.cat);
+  if (q.trim()) p.set("q", q.trim());
+  if (s.brands.length) p.set("brand", s.brands.join(SPEC_SEP.value));
+  if (s.price) p.set("price", `${s.price.min}-${s.price.max}`);
+  if (s.availability !== "all") p.set("avail", s.availability);
+  if (s.promoOnly) p.set("promo", "1");
+
+  const specs = Object.entries(s.specs).filter(([, v]) => v.length > 0);
+  if (specs.length) {
+    p.set(
+      "spec",
+      specs
+        .map(([k, v]) => `${k}${SPEC_SEP.key}${v.join(SPEC_SEP.value)}`)
+        .join(SPEC_SEP.group),
+    );
+  }
+
+  if (sort && sort !== "pop") p.set("sort", sort);
+  return p.toString();
+}
+
+const AVAIL = new Set<Availability>(["in", "pre", "out"]);
+
+export function parseFilters(qs: string | URLSearchParams): {
+  filters: Omit<FilterState, "q">;
+  q: string;
+  sort: string | null;
+} {
+  const p = typeof qs === "string" ? new URLSearchParams(qs) : qs;
+
+  const rawPrice = p.get("price");
+  let price: FilterState["price"] = null;
+  if (rawPrice) {
+    const [lo, hi] = rawPrice.split("-").map(Number);
+    // a malformed range is no range, not a range of NaN
+    if (Number.isFinite(lo) && Number.isFinite(hi) && lo <= hi) price = { min: lo, max: hi };
+  }
+
+  const specs: Record<string, string[]> = {};
+  for (const group of (p.get("spec") ?? "").split(SPEC_SEP.group)) {
+    if (!group) continue;
+    const at = group.indexOf(SPEC_SEP.key);
+    if (at < 1) continue;
+    const key = group.slice(0, at);
+    const values = group
+      .slice(at + 1)
+      .split(SPEC_SEP.value)
+      .filter(Boolean);
+    if (values.length) specs[key] = values;
+  }
+
+  const avail = p.get("avail") as Availability | null;
+
+  return {
+    filters: {
+      cat: p.get("cat") ?? "all",
+      brands: (p.get("brand") ?? "").split(SPEC_SEP.value).filter(Boolean),
+      price,
+      availability: avail && AVAIL.has(avail) ? avail : "all",
+      promoOnly: p.get("promo") === "1",
+      specs,
+    },
+    q: p.get("q") ?? "",
+    sort: p.get("sort"),
+  };
+}

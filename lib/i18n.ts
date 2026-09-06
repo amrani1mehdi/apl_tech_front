@@ -273,6 +273,7 @@ const D: Record<string, Tr> = {
   "cata.filters": { fr: "Filtres", ar: "الفلاتر", en: "Filters" },
   "cata.sort": { fr: "Trier :", ar: "ترتيب:", en: "Sort:" },
   "cata.sort.pop": { fr: "Populaires", ar: "الأكثر شيوعاً", en: "Popular" },
+  "cata.sort.new": { fr: "Nouveautés", ar: "الجديد", en: "Newest" },
   "cata.sort.asc": { fr: "Prix croissant", ar: "السعر تصاعدي", en: "Price: low to high" },
   "cata.sort.desc": { fr: "Prix décroissant", ar: "السعر تنازلي", en: "Price: high to low" },
   "cata.sort.rating": { fr: "Mieux notés", ar: "الأعلى تقييماً", en: "Top rated" },
