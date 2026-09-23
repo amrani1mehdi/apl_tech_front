@@ -1,107 +1,135 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useReducedMotion } from "motion/react";
+import { ArrowLeft, ArrowRight, Banknote, ChevronRight, CreditCard, Home, Loader2, Store, UserRound } from "lucide-react";
 import { Link } from "@/components/i18n/LocaleLink";
-import { motion } from "motion/react";
-import {
-  ChevronRight,
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Home,
-  Store,
-  Banknote,
-  CreditCard,
-  ShieldCheck,
-  Truck,
-} from "lucide-react";
 import { useCart } from "@/components/cart/CartProvider";
 import { useLocale } from "@/components/i18n/LocaleProvider";
+import { PromoField } from "@/components/checkout/PromoField";
+import { TotalsRows } from "@/components/checkout/Totals";
 import { formatDA } from "@/lib/products";
-import { WILAYAS } from "@/lib/wilayas";
+import { fill } from "@/lib/pcbuilder/engine";
+import { WILAYAS, communeLabel, communesOf, wilayaLabel, wilayaOf, type Commune } from "@/lib/checkout/geo";
+import { quoteDelivery, type DeliveryMethod } from "@/lib/checkout/shipping";
+import { redeemCoupon } from "@/lib/loyalty/wallet";
+import { EmptyFace } from "@/components/site/EmptyFace";
+import {
+  PAYMENT_METHODS,
+  draftOf,
+  placeOrder,
+  totalsOf,
+  type PaymentMethodId,
+  type PlacedOrder,
+} from "@/lib/checkout/order";
+import {
+  FIELD_ORDER,
+  emptyForm,
+  formatPhone,
+  isValidPhone,
+  validateForm,
+  type CheckoutForm,
+  type FieldError,
+} from "@/lib/checkout/validate";
+import { ChoiceCard, Field, Select, Step, TextArea, TextInput } from "@/components/checkout/Fields";
+import { Confirmation } from "./Confirmation";
 
-const FREE_FROM = 100000;
+const FORM_ID = "checkout-form";
+const fieldId = (k: keyof CheckoutForm) => `co-${k}`;
 
+/**
+ * Checkout — MODULE 5, PAN-03 to PAN-06.
+ *
+ * One page, three steps, no account. Front-end only for now: the fees and
+ * codes are placeholders (see `lib/checkout`), and `placeOrder` returns a
+ * number without sending anything. Everything a backend needs to take over is
+ * in that folder, so this page will not change when it does.
+ *
+ * Errors are shown for a field once it has been left, or for every field once
+ * the order button has been pressed — never while someone is still typing
+ * their first letters, which turns a form into a list of complaints about
+ * things nobody has finished yet.
+ */
 export default function CheckoutPage() {
-  const { items, subtotal, count, clear } = useCart();
-  const { t } = useLocale();
+  const { ready, items, subtotal, count, promoCode, clear } = useCart();
+  const { t, locale } = useLocale();
+  const reduced = useReducedMotion();
 
-  const [method, setMethod] = useState<"home" | "desk">("home");
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
-    wilaya: "",
-    commune: "",
-    address: "",
-  });
-  const [error, setError] = useState(false);
-  const [placed, setPlaced] = useState(false);
-  const [orderNo] = useState(() => "FNC-" + Math.floor(100000 + Math.random() * 900000));
+  const [form, setForm] = useState<CheckoutForm>(emptyForm);
+  const [method, setMethod] = useState<DeliveryMethod>("home");
+  const [payment, setPayment] = useState<PaymentMethodId>("cod");
+  const [touched, setTouched] = useState<Partial<Record<keyof CheckoutForm, true>>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [placed, setPlaced] = useState<PlacedOrder | null>(null);
 
-  const base = method === "home" ? 800 : 400;
-  const delivery = subtotal >= FREE_FROM ? 0 : base;
-  const total = subtotal + delivery;
+  /* The communes of the chosen wilaya, tagged with the wilaya they belong to.
+     Held as a pair rather than cleared on change, so "still loading" is simply
+     "the list on hand is for a different wilaya" — no loading flag to set, and
+     no stale list shown for a moment after the wilaya changes. */
+  const [communes, setCommunes] = useState<{ code: string; list: Commune[] } | null>(null);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  useEffect(() => {
+    if (!form.wilaya) return;
+    let live = true;
+    communesOf(form.wilaya).then((list) => {
+      if (live) setCommunes({ code: form.wilaya, list });
+    });
+    return () => {
+      live = false;
+    };
+  }, [form.wilaya]);
 
-  const submit = () => {
-    const required = [form.firstName, form.lastName, form.phone, form.wilaya];
-    if (method === "home") required.push(form.address);
-    if (required.some((v) => !v.trim())) {
-      setError(true);
+  const communeList = communes?.code === form.wilaya ? communes.list : null;
+
+  const totals = totalsOf(subtotal, promoCode, form.wilaya, method);
+  const goods = totals.subtotal - totals.discount;
+  const waived = totals.promo?.kind === "shipping";
+  const wilaya = wilayaOf(form.wilaya);
+
+  const errors = validateForm(form, method);
+  const shown = (k: keyof CheckoutForm) => (submitted || touched[k] ? errors[k] : undefined);
+  const message = (e?: FieldError) => (e ? t(`err.${e}`) : null);
+  const missing = FIELD_ORDER.filter((k) => errors[k]).length;
+
+  const contactDone = !errors.firstName && !errors.lastName && !errors.phone && !errors.email;
+  const deliveryDone = !errors.wilaya && !errors.commune && !errors.address;
+
+  const set = <K extends keyof CheckoutForm>(k: K, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const touch = (k: keyof CheckoutForm) => setTouched((s) => (s[k] ? s : { ...s, [k]: true }));
+
+  const submit = async () => {
+    if (placing) return;
+    setSubmitted(true);
+
+    const first = FIELD_ORDER.find((k) => errors[k]);
+    if (first) {
+      const el = document.getElementById(fieldId(first));
+      el?.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+      el?.focus({ preventScroll: true });
       return;
     }
-    setPlaced(true);
+
+    setPlacing(true);
+    const order = await placeOrder(draftOf(items, form, method, payment, totals.promo?.code ?? null, totals));
+    setPlacing(false);
+    setPlaced(order);
+    /* A loyalty coupon is good once (MODULE 8, FID-06). A campaign code is
+       not in anyone's wallet, so this passes over it. */
+    redeemCoupon(totals.promo?.code ?? null, order.number);
     clear();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0 });
   };
 
-  const field =
-    "w-full rounded-xl border border-line bg-cloud px-4 py-3 text-sm text-ink placeholder:text-faint transition-colors focus:border-ink/40 focus:outline-none";
+  if (placed) return <Confirmation order={placed} />;
+  if (!ready) return <main className="min-h-svh" />;
 
-  // ── Confirmation ──
-  if (placed) {
-    return (
-      <main className="grid min-h-svh place-items-center px-5 pt-28">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mx-auto max-w-lg py-16 text-center"
-        >
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-accent-gradient text-white">
-            <Check className="h-8 w-8" strokeWidth={3} />
-          </span>
-          <h1 className="mt-6 font-display text-3xl font-bold text-ink">{t("cart.placed.title")}</h1>
-          <p className="mt-3 text-mute">{t("cart.placed.desc")}</p>
-          <div className="mx-auto mt-6 max-w-xs rounded-xl border border-line bg-cloud p-4 text-start">
-            <p className="font-mono text-xs text-faint">N°</p>
-            <p className="font-display text-lg font-bold text-ink">{orderNo}</p>
-            {form.wilaya && (
-              <p className="mt-2 text-sm text-mute">
-                {t("co.placedTo")} {form.wilaya}
-              </p>
-            )}
-          </div>
-          <Link
-            href="/catalogue"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-ink px-7 py-3.5 text-sm font-semibold text-paper"
-          >
-            {t("c.continueShopping")}
-            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-          </Link>
-        </motion.div>
-      </main>
-    );
-  }
-
-  // ── Empty ──
   if (items.length === 0) {
     return (
       <main className="grid min-h-svh place-items-center px-5 pt-28">
         <div className="py-16 text-center">
+          {/* the same face the cart shows — one empty basket, one character */}
+          <EmptyFace className="mx-auto mb-6 h-32 w-32" />
           <h1 className="font-display text-3xl font-bold text-ink">{t("cart.empty")}</h1>
           <p className="mt-3 text-mute">{t("cart.empty.desc")}</p>
           <Link
@@ -116,218 +144,372 @@ export default function CheckoutPage() {
     );
   }
 
+  const confirmLabel = placing ? (
+    <>
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {t("co.placing")}
+    </>
+  ) : (
+    <>
+      {t("co.confirm")}
+      <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1" />
+    </>
+  );
+
   return (
-    <main className="min-h-svh pt-28 lg:pt-36">
-      <div className="mx-auto max-w-[1320px] px-5 pb-20 lg:px-8 lg:pb-28">
-        {/* header */}
-        <nav className="flex items-center gap-1.5 font-sans text-[11px] font-semibold uppercase text-faint">
+    <main className="min-h-svh pb-28 pt-28 lg:pb-0 lg:pt-36">
+      <div className="mx-auto max-w-[1320px] px-5 pb-16 lg:px-8 lg:pb-28">
+        <nav className="flex items-center gap-1.5 text-[11.5px] font-medium text-faint">
           <Link href="/" className="transition-colors hover:text-ink">APL TECH</Link>
           <ChevronRight className="h-3 w-3 rtl:rotate-180" />
           <Link href="/panier" className="transition-colors hover:text-ink">{t("cart.title")}</Link>
           <ChevronRight className="h-3 w-3 rtl:rotate-180" />
           <span className="text-mute">{t("co.crumb")}</span>
         </nav>
-        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,3rem)] font-bold tracking-[-0.02em] text-ink">
+
+        <h1 className="mt-4 font-display text-[clamp(2rem,4vw,3rem)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">
           {t("co.title")}
         </h1>
-        <p className="mt-3 max-w-xl text-mute">{t("co.subtitle")}</p>
+        <p className="mt-3 flex items-center gap-2 text-[15px] text-mute">
+          <UserRound className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.9} />
+          {t("co.subtitle")}
+        </p>
 
-        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
-          {/* form */}
-          <div className="space-y-10">
-            {/* contact */}
-            <section>
-              <h2 className="flex items-center gap-3 font-display text-lg font-bold text-ink">
-                <span className="font-mono text-[11px] font-bold text-accent">01</span>
-                {t("co.contact")}
-              </h2>
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label={t("co.firstName")} required value={form.firstName} onChange={set("firstName")} cls={field} />
-                <Input label={t("co.lastName")} required value={form.lastName} onChange={set("lastName")} cls={field} />
-                <Input label={t("co.phone")} required type="tel" placeholder="0770 00 00 00" value={form.phone} onChange={set("phone")} cls={field} />
-                <Input label={t("co.email")} type="email" placeholder="email@exemple.com" value={form.email} onChange={set("email")} cls={field} />
+        <div className="mt-8 grid grid-cols-1 items-start gap-6 lg:mt-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-8">
+          <form
+            id={FORM_ID}
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit();
+            }}
+            className="space-y-5"
+          >
+            {/* ── 1 — who ── */}
+            <Step n={1} id="co-step-contact" title={t("co.contact")} done={contactDone}>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                <Field id={fieldId("firstName")} label={t("co.firstName")} error={message(shown("firstName"))}>
+                  <TextInput
+                    id={fieldId("firstName")}
+                    describedBy={`${fieldId("firstName")}-msg`}
+                    invalid={Boolean(shown("firstName"))}
+                    autoComplete="given-name"
+                    value={form.firstName}
+                    onChange={(e) => set("firstName", e.target.value)}
+                    onBlur={() => touch("firstName")}
+                  />
+                </Field>
+                <Field id={fieldId("lastName")} label={t("co.lastName")} error={message(shown("lastName"))}>
+                  <TextInput
+                    id={fieldId("lastName")}
+                    describedBy={`${fieldId("lastName")}-msg`}
+                    invalid={Boolean(shown("lastName"))}
+                    autoComplete="family-name"
+                    value={form.lastName}
+                    onChange={(e) => set("lastName", e.target.value)}
+                    onBlur={() => touch("lastName")}
+                  />
+                </Field>
+                <Field
+                  id={fieldId("phone")}
+                  label={t("co.phone")}
+                  error={message(shown("phone"))}
+                  hint={t("co.phoneHint")}
+                >
+                  <TextInput
+                    id={fieldId("phone")}
+                    describedBy={`${fieldId("phone")}-msg`}
+                    invalid={Boolean(shown("phone"))}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    placeholder="0770 12 34 56"
+                    dir="ltr"
+                    className="rtl:text-end"
+                    value={form.phone}
+                    onChange={(e) => set("phone", e.target.value)}
+                    /* Tidied into the way it is read out once it is valid —
+                       "+213770123456" comes back as "0770 12 34 56", which is
+                       what the courier will dial and what the customer will
+                       recognise on the confirmation. */
+                    onBlur={() => {
+                      touch("phone");
+                      if (isValidPhone(form.phone)) set("phone", formatPhone(form.phone));
+                    }}
+                  />
+                </Field>
+                <Field
+                  id={fieldId("email")}
+                  label={t("co.email")}
+                  error={message(shown("email"))}
+                  hint={t("co.emailHint")}
+                >
+                  <TextInput
+                    id={fieldId("email")}
+                    describedBy={`${fieldId("email")}-msg`}
+                    invalid={Boolean(shown("email"))}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="email@exemple.com"
+                    dir="ltr"
+                    className="rtl:text-end"
+                    value={form.email}
+                    onChange={(e) => set("email", e.target.value)}
+                    onBlur={() => touch("email")}
+                  />
+                </Field>
               </div>
-            </section>
+            </Step>
 
-            {/* delivery */}
-            <section>
-              <h2 className="flex items-center gap-3 font-display text-lg font-bold text-ink">
-                <span className="font-mono text-[11px] font-bold text-accent">02</span>
-                {t("co.delivery")}
-              </h2>
-
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {[
-                  { key: "home" as const, icon: Home, t: t("co.home"), d: t("co.homeDesc"), price: 800 },
-                  { key: "desk" as const, icon: Store, t: t("co.desk"), d: t("co.deskDesc"), price: 400 },
-                ].map((m) => {
-                  const on = method === m.key;
-                  return (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => setMethod(m.key)}
-                      className={`flex items-start gap-3 rounded-xl border p-4 text-start transition-colors ${
-                        on ? "border-accent bg-accent text-white" : "border-line bg-cloud text-ink hover:border-accent/40"
-                      }`}
-                    >
-                      <m.icon className={`mt-0.5 h-5 w-5 shrink-0 ${on ? "text-paper" : "text-accent"}`} />
-                      <span className="flex-1">
-                        <span className="block text-sm font-semibold">{m.t}</span>
-                        <span className={`block text-xs ${on ? "text-paper/60" : "text-mute"}`}>{m.d}</span>
-                      </span>
-                      <span className="text-sm font-bold">
-                        {subtotal >= FREE_FROM ? t("cart.free") : m.price.toLocaleString("fr-FR")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium text-mute">
-                    {t("co.wilaya")} <span className="text-accent">*</span>
-                  </span>
-                  <select value={form.wilaya} onChange={(e) => setForm((f) => ({ ...f, wilaya: e.target.value }))} className={field}>
+            {/* ── 2 — where ── */}
+            <Step n={2} id="co-step-delivery" title={t("co.delivery")} done={deliveryDone}>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                <Field id={fieldId("wilaya")} label={t("co.wilaya")} error={message(shown("wilaya"))}>
+                  <Select
+                    id={fieldId("wilaya")}
+                    describedBy={`${fieldId("wilaya")}-msg`}
+                    invalid={Boolean(shown("wilaya"))}
+                    autoComplete="address-level1"
+                    value={form.wilaya}
+                    onChange={(e) => {
+                      /* A commune belongs to one wilaya; keeping the old one
+                         would put Bab Ezzouar in Oran. */
+                      setForm((f) => ({ ...f, wilaya: e.target.value, commune: "" }));
+                    }}
+                    onBlur={() => touch("wilaya")}
+                  >
                     <option value="">{t("co.wilayaPick")}</option>
                     {WILAYAS.map((w) => (
-                      <option key={w} value={w}>{w}</option>
+                      <option key={w.code} value={w.code}>
+                        {wilayaLabel(w, locale)}
+                      </option>
                     ))}
-                  </select>
-                </label>
-                <Input label={t("co.commune")} value={form.commune} onChange={set("commune")} cls={field} />
+                  </Select>
+                </Field>
+
+                <Field id={fieldId("commune")} label={t("co.commune")} error={message(shown("commune"))}>
+                  <Select
+                    id={fieldId("commune")}
+                    describedBy={`${fieldId("commune")}-msg`}
+                    invalid={Boolean(shown("commune"))}
+                    autoComplete="address-level2"
+                    disabled={!form.wilaya || !communeList}
+                    value={form.commune}
+                    onChange={(e) => set("commune", e.target.value)}
+                    onBlur={() => touch("commune")}
+                  >
+                    <option value="">
+                      {!form.wilaya ? t("co.communeFirst") : !communeList ? t("co.communeLoading") : t("co.communePick")}
+                    </option>
+                    {communeList?.map((c) => (
+                      <option key={c[0]} value={c[0]}>
+                        {communeLabel(c, locale)}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
               </div>
+
+              {/* How it arrives — PAN-04. Priced for the chosen wilaya the
+                  moment one is picked; before that each card says the price
+                  depends on it, rather than showing a number that is about to
+                  change. */}
+              <fieldset className="mt-2">
+                <legend className="text-[13px] font-medium text-ink">{t("co.method")}</legend>
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {(["home", "pickup"] as const).map((m) => {
+                    const quote = form.wilaya ? quoteDelivery(form.wilaya, m, goods, waived) : null;
+                    return (
+                      <ChoiceCard
+                        key={m}
+                        name="delivery-method"
+                        value={m}
+                        checked={method === m}
+                        onChange={() => setMethod(m)}
+                        icon={m === "home" ? <Home className="h-4 w-4" strokeWidth={2} /> : <Store className="h-4 w-4" strokeWidth={2} />}
+                        title={t(m === "home" ? "co.home" : "co.pickup")}
+                        description={t(m === "home" ? "co.homeDesc" : "co.pickupDesc")}
+                        footer={
+                          quote ? (
+                            <>
+                              <span className="text-[12.5px] text-mute">
+                                {fill(t("co.days"), { min: quote.days[0], max: quote.days[1] })}
+                              </span>
+                              <span className="font-display text-[15px] font-bold tabular-nums text-ink">
+                                {quote.free ? t("cart.free") : formatDA(quote.fee, locale)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-[12.5px] text-faint">{t("co.feeAfterWilaya")}</span>
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </fieldset>
 
               {method === "home" && (
-                <div className="mt-4">
-                  <Input label={t("co.address")} required value={form.address} onChange={set("address")} cls={field} />
+                <div className="mt-5">
+                  <Field id={fieldId("address")} label={t("co.address")} error={message(shown("address"))}>
+                    <TextArea
+                      id={fieldId("address")}
+                      describedBy={`${fieldId("address")}-msg`}
+                      invalid={Boolean(shown("address"))}
+                      autoComplete="street-address"
+                      rows={2}
+                      placeholder={t("co.addressPh")}
+                      value={form.address}
+                      onChange={(e) => set("address", e.target.value)}
+                      onBlur={() => touch("address")}
+                    />
+                  </Field>
                 </div>
               )}
-            </section>
+            </Step>
 
-            {/* payment */}
-            <section>
-              <h2 className="flex items-center gap-3 font-display text-lg font-bold text-ink">
-                <span className="font-mono text-[11px] font-bold text-accent">03</span>
-                {t("co.payment")}
-              </h2>
-              <div className="mt-5 space-y-3">
-                <div className="flex items-center gap-3 rounded-xl border-2 border-ink bg-cloud p-4">
-                  <span className="grid h-5 w-5 place-items-center rounded-full bg-ink text-paper">
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  </span>
-                  <Banknote className="h-5 w-5 text-accent" />
-                  <span className="flex-1">
-                    <span className="block text-sm font-semibold text-ink">{t("feat.cod.t")}</span>
-                    <span className="block text-xs text-mute">{t("co.codDesc")}</span>
-                  </span>
+            {/* ── 3 — how it is paid — PAN-05 ── */}
+            <Step n={3} id="co-step-payment" title={t("co.payment")} done>
+              <fieldset>
+                <legend className="sr-only">{t("co.payment")}</legend>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {PAYMENT_METHODS.map((p) => (
+                    <ChoiceCard
+                      key={p.id}
+                      name="payment-method"
+                      value={p.id}
+                      checked={payment === p.id}
+                      disabled={!p.available}
+                      onChange={() => setPayment(p.id)}
+                      icon={p.id === "cod" ? <Banknote className="h-4 w-4" strokeWidth={2} /> : <CreditCard className="h-4 w-4" strokeWidth={2} />}
+                      title={t(p.id === "cod" ? "co.cod" : "co.online")}
+                      description={t(p.id === "cod" ? "co.codDesc" : "co.onlineDesc")}
+                      aside={!p.available ? <span className="text-[12px] font-medium text-faint">{t("co.soon")}</span> : undefined}
+                    />
+                  ))}
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-line p-4 opacity-55">
-                  <span className="h-5 w-5 rounded-full border border-line" />
-                  <CreditCard className="h-5 w-5 text-mute" />
-                  <span className="text-sm text-mute">{t("co.cardSoon")}</span>
-                </div>
-              </div>
-            </section>
+              </fieldset>
+            </Step>
 
-            <Link href="/panier" className="inline-flex items-center gap-2 text-sm font-medium text-mute transition-colors hover:text-ink">
+            <Link
+              href="/panier"
+              className="inline-flex items-center gap-2 text-sm font-medium text-mute transition-colors hover:text-ink"
+            >
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
               {t("co.back")}
             </Link>
-          </div>
+          </form>
 
-          {/* summary */}
-          <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="rounded-2xl border border-line bg-cloud p-6">
-              <h2 className="font-display text-lg font-bold text-ink">{t("co.itemsTitle")}</h2>
+          {/* ── the order ── */}
+          <aside className="lg:sticky lg:top-28">
+            <div className="rounded-2xl border border-line bg-white p-5 sm:p-6">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="font-display text-lg font-bold text-ink">
+                  {t("co.itemsTitle")} <span className="text-[14px] font-semibold text-mute">({count})</span>
+                </h2>
+                <Link href="/panier" className="text-[13px] font-medium text-accent transition-colors hover:text-accent-deep">
+                  {t("co.edit")}
+                </Link>
+              </div>
 
-              <ul className="mt-5 max-h-64 space-y-3 overflow-y-auto">
+              <ul className="-me-2 mt-4 max-h-[15.5rem] space-y-3 overflow-y-auto pe-2">
                 {items.map((it) => (
-                  <li key={it.slug} className="flex items-center gap-3">
-                    <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-line bg-paper">
-                      <img src={it.image} alt={it.name} className="h-full w-full object-cover" />
-                      <span className="absolute -end-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-ink text-[10px] font-bold text-paper">
-                        {it.qty}
+                  <li key={`${it.slug}::${it.variant ?? ""}`} className="flex items-center gap-3">
+                    <span className="relative shrink-0">
+                      <span className="block h-[52px] w-[52px] overflow-hidden rounded-lg border border-line bg-paper">
+                        <img src={it.image} alt="" className="h-full w-full object-cover" />
                       </span>
+                      {it.qty > 1 && (
+                        <span className="absolute -end-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-ink px-1 text-[10.5px] font-bold tabular-nums text-paper">
+                          {it.qty}
+                        </span>
+                      )}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-ink">{it.name}</span>
-                    <span className="shrink-0 text-sm font-semibold text-ink">{formatDA(it.price * it.qty)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span dir="ltr" className="line-clamp-2 text-[13px] leading-snug text-ink rtl:text-end">
+                        {it.name}
+                      </span>
+                      {it.variant && <span className="block text-[12px] text-mute">{it.variant}</span>}
+                    </span>
+                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">
+                      {formatDA(it.price * it.qty, locale)}
+                    </span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-5 space-y-3 border-t border-line pt-5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-mute">{t("c.subtotal")} ({count})</span>
-                  <span className="font-medium text-ink">{formatDA(subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-mute">{t("cart.delivery")}</span>
-                  <span className="font-medium text-ink">
-                    {delivery === 0 ? t("cart.free") : formatDA(delivery)}
-                  </span>
-                </div>
+              <div className="mt-5 border-t border-line-soft pt-4">
+                <PromoField subtotal={subtotal} />
               </div>
 
-              <div className="mt-5 flex items-end justify-between border-t border-line pt-5">
-                <span className="font-medium text-ink">{t("c.total")}</span>
-                <span className="font-display text-2xl font-bold text-ink">{formatDA(total)}</span>
+              <div className="mt-4 border-t border-line-soft pt-4">
+                <TotalsRows
+                  totals={totals}
+                  promo={totals.promo}
+                  stage="checkout"
+                  wilayaName={wilaya ? (locale === "ar" ? wilaya.ar : wilaya.name) : undefined}
+                />
               </div>
 
-              {error && (
-                <p className="mt-4 rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent">
-                  {t("co.fill")}
-                </p>
-              )}
+              {/* The sentence that matters most on a cash-on-delivery order,
+                  directly above the button that commits to it. */}
+              <div className="mt-5 flex gap-3 rounded-xl bg-paper p-4">
+                <Banknote className="mt-0.5 h-5 w-5 shrink-0 text-accent" strokeWidth={1.9} />
+                <div>
+                  <p className="font-display text-[15px] font-bold text-ink">{t("co.payNow")}</p>
+                  <p className="mt-0.5 text-[13px] leading-snug text-mute">
+                    {totals.delivery
+                      ? fill(t("co.payLater"), { total: formatDA(totals.total, locale) })
+                      : t("co.payLaterUnknown")}
+                  </p>
+                </div>
+              </div>
 
               <button
-                onClick={submit}
-                className="btn-accent group mt-5 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold"
+                type="submit"
+                form={FORM_ID}
+                disabled={placing}
+                className="btn-accent group mt-5 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold disabled:cursor-wait disabled:opacity-80"
               >
-                {t("co.confirm")}
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 rtl:rotate-180" />
+                {confirmLabel}
               </button>
 
-              <div className="mt-5 space-y-2.5 border-t border-line pt-5">
-                <p className="flex items-center gap-2.5 text-xs text-mute">
-                  <Truck className="h-4 w-4 text-accent" /> {t("feat.delivery.t")}
+              {submitted && missing > 0 && (
+                <p role="alert" className="mt-3 text-center text-[12.5px] text-alert">
+                  {fill(t(missing === 1 ? "co.missing1" : "co.missing"), { n: missing })}
                 </p>
-                <p className="flex items-center gap-2.5 text-xs text-mute">
-                  <ShieldCheck className="h-4 w-4 text-accent" /> {t("feat.warranty.t")}
-                </p>
-              </div>
+              )}
             </div>
           </aside>
         </div>
       </div>
-    </main>
-  );
-}
 
-function Input({
-  label,
-  required,
-  type = "text",
-  placeholder,
-  value,
-  onChange,
-  cls,
-}: {
-  label: string;
-  required?: boolean;
-  type?: string;
-  placeholder?: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  cls: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-mute">
-        {label} {required && <span className="text-accent">*</span>}
-      </span>
-      <input type={type} placeholder={placeholder} value={value} onChange={onChange} className={cls} />
-    </label>
+      {/* ── phones: the total and the button, always in reach ──
+          The summary sits under a form three screens long on a phone. Without
+          this the customer fills the last field and then has to scroll to find
+          out what they are paying and where to press. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-5 pt-3 backdrop-blur-md lg:hidden"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto flex max-w-[1320px] items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11.5px] text-mute">{totals.delivery ? t("co.toPay") : t("cart.totalExcl")}</p>
+            <p className="font-display text-[20px] font-bold leading-tight tabular-nums text-ink">
+              {formatDA(totals.total, locale)}
+            </p>
+          </div>
+          <button
+            type="submit"
+            form={FORM_ID}
+            disabled={placing}
+            className="btn-accent group flex shrink-0 items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold disabled:cursor-wait disabled:opacity-80"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { RotateCcw, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { ProductCard } from "@/components/site/ProductCard";
 import { ProductRow } from "@/components/site/ProductRow";
@@ -19,10 +19,11 @@ import {
   type FilterPatch,
   type FilterState,
 } from "@/lib/catalogue";
+import { CategoryRail } from "./CategoryRail";
 import { FilterPanel } from "./FilterPanel";
 import { FilterChips } from "./FilterChips";
 import { SortMenu } from "./SortMenu";
-import { CountRoll } from "./CountRoll";
+import { CountRoll } from "@/components/site/CountRoll";
 import { ViewToggle, type View } from "./ViewToggle";
 import { LoadMore, Pagination } from "./Pagination";
 import { useMediaQuery } from "./useMediaQuery";
@@ -33,10 +34,44 @@ type SortKey = (typeof SORTS)[number];
 /** the house ease — a fast start that settles rather than stops */
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
+/**
+ * How a card leaves when the page turns.
+ *
+ * A leaving card can no longer be told anything. AnimatePresence re-renders
+ * the element it kept from *before* the click, so the card's own props still
+ * describe the page it was on — read the direction from them and every turn
+ * sweeps the way the previous one did. It arrives through AnimatePresence's
+ * `custom` instead, which is read at exit time.
+ *
+ * That custom is a plain number rather than an object on purpose: a keystroke
+ * in the search field re-renders this whole column, and a fresh object each
+ * time would re-resolve — and so restart — an exit already in flight.
+ *
+ * `sweep` is 0 when nothing was actually turned: a filter changed, or the
+ * reader has asked for less motion. The card then fades where it stands.
+ */
+const leaving = (drift: number, shrink: number): Variants => ({
+  gone: (sweep: number) => ({
+    opacity: 0,
+    scale: shrink,
+    x: sweep * -drift,
+    transition: { duration: 0.22, ease: "easeOut" },
+  }),
+});
+
+/* Far enough that the direction is unmistakable. The first pass used about
+   half these distances and the turn was too polite to register — the cards
+   barely moved before the fade did the rest of the work, which reads as a
+   dissolve rather than as a page going somewhere. The clip edge on the grid
+   below is what makes the extra distance affordable: the cards are cut off at
+   the column boundary instead of drifting across the sidebar. */
+const CARD_EXIT = leaving(112, 0.94);
+const ROW_EXIT = leaving(150, 0.98);
+
 export function CatalogueClient() {
   const params = useSearchParams();
   const router = useRouter();
-  const { t, locale } = useLocale();
+  const { t, locale, dir } = useLocale();
   const reduced = useReducedMotion();
 
   /* Everything starts from the query string, so a shared link opens on the
@@ -133,6 +168,10 @@ export function CatalogueClient() {
   const paged = useMediaQuery("(min-width: 1024px)");
 
   const [page, setPage] = useState(1);
+  /* Which way the last change went — +1 on, -1 back, 0 for a change that was
+     not a page turn at all. The grid reads it to decide whether the cards
+     travel sideways or simply rise into place. */
+  const [turn, setTurn] = useState(0);
   const pageCount = Math.max(1, Math.ceil(results.length / pageSize));
 
   /* Any change to the filters, the sort or the search produces a new results
@@ -144,6 +183,9 @@ export function CatalogueClient() {
   if (seen.results !== results || seen.pageSize !== pageSize || seen.paged !== paged) {
     setSeen({ results, pageSize, paged });
     setPage(1);
+    // landing back on page 1 because the results changed is not a turn: there
+    // is no "back" to sweep towards when the list underneath is a new one
+    setTurn(0);
   }
 
   const shown = paged
@@ -151,6 +193,8 @@ export function CatalogueClient() {
     : results.slice(0, page * pageSize);
 
   const goToPage = (next: number) => {
+    if (next === page) return;
+    setTurn(next > page ? 1 : -1);
     setPage(next);
     // a new page starts at its own top, not wherever the last one ended
     gridTop.current?.scrollIntoView({ block: "start" });
@@ -159,16 +203,38 @@ export function CatalogueClient() {
   /* No scroll on this one: the button sits under the last row, the new rows
      appear above where the thumb already is, and yanking the page would lose
      that place. */
-  const loadMore = () => setPage((p) => p + 1);
+  const loadMore = () => {
+    // appending rather than turning: the rows already read stay exactly where
+    // they are and the new ones rise in underneath them
+    setTurn(0);
+    setPage((p) => p + 1);
+  };
+
+  /* The drawer is pinned to the start edge, which is the right one in
+     Arabic — so the side it slides in from has to follow the writing
+     direction too, or it crosses the whole screen to arrive at the edge it
+     was already next to. */
+  const drawerOff = dir === "rtl" ? "100%" : "-100%";
+
+  /* Forward is whichever way the language reads: page 2 arrives from the
+     right in French, from the left in Arabic — the same direction the eye
+     travels to reach the "next" button that asked for it. */
+  const sweep = reduced ? 0 : turn * (dir === "rtl" ? -1 : 1);
 
   const countLabel = `${results.length} ${
     results.length > 1 ? t("cata.productsP") : t("cata.products")
   }`;
 
-  const categories = [
-    { key: "all", name: t("c.allCatalogue") },
-    ...CATEGORIES.map((c) => ({ key: c.key, name: catName(c.key, locale) })),
-  ];
+  /* Held steady between renders: the rail re-measures itself whenever this
+     list changes identity, and a fresh array on every keystroke in the search
+     field would have it doing that for nothing. */
+  const categories = useMemo(
+    () => [
+      { key: "all", name: t("c.allCatalogue") },
+      ...CATEGORIES.map((c) => ({ key: c.key, name: catName(c.key, locale) })),
+    ],
+    [t, locale],
+  );
 
   return (
     <>
@@ -178,50 +244,12 @@ export function CatalogueClient() {
           width, one tap away, and docked under the header as the grid scrolls
           past it. The panel keeps its own copy — this is navigation, that is
           the filter set. */}
-      <nav
-        aria-label={t("cata.browse")}
-        className="sticky top-[68px] z-30 border-b border-line bg-paper/85 backdrop-blur-md"
-      >
-        {/* No visible label over the chips: they are category names, which
-            need no caption, and the one that used to sit here only appeared
-            from lg — so it also pushed the rail out of line with the filter
-            panel and grid underneath it. The nav keeps its aria-label, which
-            is what a screen reader needs to announce the landmark. */}
-        <div className="mx-auto flex max-w-[1320px] items-center px-5 lg:px-8">
-          <div className="no-bar rail-scroll -mx-1 flex flex-1 gap-2 overflow-x-auto px-1 py-4">
-            {categories.map((c) => {
-              const on = state.cat === c.key;
-              return (
-                <button
-                  key={c.key}
-                  onClick={() => patch({ cat: c.key, specs: {} })}
-                  aria-current={on ? "true" : undefined}
-                  className={`cat-chip relative shrink-0 rounded-full px-5 py-3 text-[15px] font-medium ${
-                    on ? "text-white" : "text-mute hover:text-ink"
-                  }`}
-                >
-                  {/* the resting tint sits under the indicator rather than on
-                      the button, so hovering the category you are already on
-                      does not lighten the accent pill */}
-                  {!on && <span className="cat-chip-hover" aria-hidden />}
-                  {on && (
-                    <motion.span
-                      layoutId="cat-pill"
-                      transition={
-                        reduced
-                          ? { duration: 0 }
-                          : { type: "spring", stiffness: 420, damping: 36, mass: 0.7 }
-                      }
-                      className="bg-accent-gradient-x absolute inset-0 rounded-full shadow-[0_6px_16px_-8px_rgb(146_45_169/0.75)]"
-                    />
-                  )}
-                  <span className="relative">{c.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
+      <CategoryRail
+        categories={categories}
+        active={state.cat}
+        // same rule as the filter panel: the shelf changes, the sub goes with it
+        onPick={(key) => patch({ cat: key, sub: "all" })}
+      />
 
       <section className="mx-auto max-w-[1320px] px-5 pb-14 pt-10 lg:px-8 lg:pb-20 lg:pt-12">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-[268px_1fr] lg:gap-12">
@@ -320,7 +348,7 @@ export function CatalogueClient() {
                 {results.length > 1 ? t("cata.productsP") : t("cata.products")}
               </p>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
                 <button
                   onClick={() => setMobileOpen(true)}
                   className="flex items-center gap-2 rounded-full border border-line bg-cloud px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-ink/30 sm:py-2 lg:hidden"
@@ -388,16 +416,27 @@ export function CatalogueClient() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={reduced ? { opacity: 0 } : { opacity: 0, y: -8 }}
                     transition={{ duration: reduced ? 0.12 : 0.26, ease: EASE_OUT }}
-                    className="mt-10 flex flex-col gap-3"
+                    className="mt-10 flex flex-col gap-3 overflow-x-clip"
                   >
-                    <AnimatePresence mode="popLayout">
+                    <AnimatePresence mode="popLayout" custom={sweep}>
                       {shown.map((p, i) => (
+                        // A row is the full width of the column, so it carries
+                        // further than a card before it reads as travel.
                         <motion.div
                           key={p.slug}
                           layout
-                          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 16 }}
+                          custom={sweep}
+                          variants={ROW_EXIT}
+                          initial={
+                            reduced
+                              ? { opacity: 0 }
+                              : sweep
+                                ? { opacity: 0, x: sweep * 150 }
+                                : { opacity: 0, y: 16 }
+                          }
                           animate={{
                             opacity: 1,
+                            x: 0,
                             y: 0,
                             transition: {
                               duration: reduced ? 0.15 : 0.36,
@@ -405,11 +444,7 @@ export function CatalogueClient() {
                               delay: reduced ? 0 : Math.min(i, 8) * 0.03,
                             },
                           }}
-                          exit={{
-                            opacity: 0,
-                            scale: 0.98,
-                            transition: { duration: reduced ? 0.1 : 0.2, ease: "easeOut" },
-                          }}
+                          exit="gone"
                           transition={
                             reduced
                               ? { duration: 0 }
@@ -432,7 +467,13 @@ export function CatalogueClient() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={reduced ? { opacity: 0 } : { opacity: 0, y: -8 }}
                     transition={{ duration: reduced ? 0.12 : 0.26, ease: EASE_OUT }}
-                    className="mt-10 grid grid-cols-2 gap-x-4 gap-y-9 sm:gap-x-6 md:grid-cols-3"
+                    /* `overflow-x-clip`, not `overflow-hidden`: cards have to
+                       be cut off at the column edge as they leave, but the
+                       vertical axis must stay free or the hover lift and the
+                       card's own shadow get sliced off along with them. Clip
+                       on one axis is also not a scroll container, so nothing
+                       here starts capturing wheel events. */
+                    className="mt-8 grid grid-cols-2 gap-x-3 gap-y-7 overflow-x-clip sm:mt-10 sm:gap-x-6 sm:gap-y-9 md:grid-cols-3"
                   >
                 {/* popLayout takes a leaving card out of the flow the moment
                     it starts fading, so the cards behind it begin travelling
@@ -440,18 +481,34 @@ export function CatalogueClient() {
                     the gap to close. Sorting keeps every key, so nothing
                     re-enters — the whole grid just springs into its new
                     order. */}
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="popLayout" custom={sweep}>
                   {shown.map((p, i) => (
+                    // A turned page enters from the side it came from and the
+                    // old one leaves the opposite way, so the two never look
+                    // like the same set of cards rearranging itself. A filter
+                    // change has no side to come from — those still rise.
+                    // popLayout takes the leaving cards out of the flow at
+                    // once, so both halves occupy the same space and the
+                    // column below never jumps while they cross.
                     <motion.div
                       key={p.slug}
                       layout
-                      initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.97 }}
+                      custom={sweep}
+                      variants={CARD_EXIT}
+                      initial={
+                        reduced
+                          ? { opacity: 0 }
+                          : sweep
+                            ? { opacity: 0, x: sweep * 112, scale: 0.97 }
+                            : { opacity: 0, y: 20, scale: 0.97 }
+                      }
                       animate={{
                         opacity: 1,
+                        x: 0,
                         y: 0,
                         scale: 1,
                         transition: {
-                          duration: reduced ? 0.15 : 0.42,
+                          duration: reduced ? 0.15 : 0.46,
                           ease: EASE_OUT,
                           // the stagger only ever runs on cards that are
                           // genuinely new, and is capped so a wide result
@@ -459,11 +516,7 @@ export function CatalogueClient() {
                           delay: reduced ? 0 : Math.min(i, 8) * 0.04,
                         },
                       }}
-                      exit={{
-                        opacity: 0,
-                        scale: 0.94,
-                        transition: { duration: reduced ? 0.1 : 0.22, ease: "easeOut" },
-                      }}
+                      exit="gone"
                       transition={
                         reduced
                           ? { duration: 0 }
@@ -500,9 +553,9 @@ export function CatalogueClient() {
               className="fixed inset-0 z-[60] bg-ink/50 backdrop-blur-sm lg:hidden"
             />
             <motion.div
-              initial={{ x: "-100%" }}
+              initial={{ x: drawerOff }}
               animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
+              exit={{ x: drawerOff }}
               transition={{ type: "spring", stiffness: 320, damping: 36 }}
               className="fixed inset-y-0 start-0 z-[70] flex w-[88%] max-w-sm flex-col bg-paper lg:hidden"
             >

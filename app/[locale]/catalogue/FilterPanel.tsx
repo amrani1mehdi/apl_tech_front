@@ -4,8 +4,9 @@ import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, ChevronDown, Tag } from "lucide-react";
 import { useLocale } from "@/components/i18n/LocaleProvider";
+import { BrandMark } from "@/components/site/BrandMark";
 import { catName } from "@/lib/i18n";
-import { CATEGORIES, BRANDS } from "@/lib/products";
+import { CATEGORIES, BRANDS, subsOf } from "@/lib/products";
 import {
   PRICE_STEP,
   availabilityCounts,
@@ -14,7 +15,7 @@ import {
   effectivePrice,
   priceBounds,
   promoCount,
-  specFacets,
+  subCounts,
   type Availability,
   type FilterPatch,
   type FilterState,
@@ -36,11 +37,11 @@ const VISIBLE = 6;
 /* ── Section ──────────────────────────────────────────────────────────────
    Every group is a disclosure. Open by default, because a filter panel that
    arrives entirely shut hides the one thing it is for; collapsible, because
-   six of them stacked is a long column on a laptop.
+   five of them stacked is a long column on a laptop.
 
    The body is measured rather than transitioned to a fixed height, so a group
-   whose options change — the technical ones do, on every category — still
-   opens to exactly its own size. */
+   whose options change — the brands do, with every category — still opens to
+   exactly its own size. */
 function Section({
   label,
   count,
@@ -113,17 +114,21 @@ function Tick({ on }: { on: boolean }) {
   );
 }
 
-/** One tickable row: label on the left, how many it would leave on the right. */
+/** One tickable row: label on the left, how many it would leave on the right.
+    `icon` sits between the tick and the label — the brands use it for their
+    marks, and it inherits the row's colour rather than carrying its own. */
 function Option({
   label,
   on,
   count,
   onClick,
+  icon,
 }: {
   label: string;
   on: boolean;
   count?: number;
   onClick: () => void;
+  icon?: ReactNode;
 }) {
   const empty = count === 0;
   return (
@@ -135,6 +140,7 @@ function Option({
       }`}
     >
       <Tick on={on} />
+      {icon}
       <span className="flex-1 truncate">{label}</span>
       {count !== undefined && (
         <span className={`font-mono text-[11px] tabular-nums ${empty ? "text-line" : "text-faint"}`}>
@@ -145,14 +151,33 @@ function Option({
   );
 }
 
-/** A list that only shows its first few options until asked for the rest. */
-function OptionList({ children, total }: { children: ReactNode[]; total: number }) {
+/**
+ * A list that only shows its first few options until asked for the rest.
+ *
+ * `keep` is an option that has to survive the cut. The category list runs
+ * well past six now, and the chosen one is as likely to be at the bottom of
+ * it as the top — collapsing it out of sight would leave the panel claiming
+ * no category while the grid showed one.
+ */
+function OptionList({
+  children,
+  total,
+  keep,
+}: {
+  children: ReactNode[];
+  total: number;
+  keep?: number;
+}) {
   const { t } = useLocale();
   const [all, setAll] = useState(false);
   if (total <= VISIBLE) return <div className="space-y-0.5">{children}</div>;
+  const few =
+    keep !== undefined && keep >= VISIBLE
+      ? [...children.slice(0, VISIBLE - 1), children[keep]]
+      : children.slice(0, VISIBLE);
   return (
     <div className="space-y-0.5">
-      {all ? children : children.slice(0, VISIBLE)}
+      {all ? children : few}
       <button
         onClick={() => setAll((v) => !v)}
         className="px-2 pt-1.5 text-xs font-semibold text-accent transition-opacity hover:opacity-70"
@@ -183,10 +208,14 @@ export function FilterPanel({
   const bounds = priceBounds(state);
   const price = effectivePrice(state, bounds);
   const cats = categoryCounts(state);
+  /* Only the chosen category's shelves — subs are never listed across
+     categories, so at "Tout le catalogue" this group has nothing to show and
+     the section below drops out entirely rather than rendering empty. */
+  const subs = subsOf(state.cat);
+  const subN = subCounts(state);
   const brandsN = brandCounts(state);
   const availN = availabilityCounts(state);
   const promoN = promoCount(state);
-  const facets = specFacets(state);
 
   const toggleBrand = (b: string) =>
     patch({
@@ -194,17 +223,6 @@ export function FilterPanel({
         ? state.brands.filter((x) => x !== b)
         : [...state.brands, b],
     });
-
-  const toggleSpec = (key: string, value: string) => {
-    const current = state.specs[key] ?? [];
-    const next = current.includes(value)
-      ? current.filter((v) => v !== value)
-      : [...current, value];
-    const specs = { ...state.specs };
-    if (next.length) specs[key] = next;
-    else delete specs[key];
-    patch({ specs });
-  };
 
   const categories = [
     { key: "all", name: t("c.allCatalogue") },
@@ -214,37 +232,84 @@ export function FilterPanel({
   return (
     <div>
       <Section label={t("cata.category")} count={state.cat !== "all" ? 1 : 0}>
-        <div className="space-y-0.5">
+        <OptionList
+          total={categories.length}
+          keep={Math.max(0, categories.findIndex((c) => c.key === state.cat))}
+        >
           {categories.map((c) => {
             const on = state.cat === c.key;
+            /* The shelves hang under the category they belong to, and only
+               while it is the chosen one — a flat list of every sub in the
+               store would be forty rows of things most of which cannot apply
+               together. Nesting them inside this entry rather than appending
+               them as siblings also keeps the count OptionList truncates on
+               equal to the number of categories. */
+            const nested = on ? subs : [];
             return (
-              <button
-                key={`${idPrefix}-${c.key}`}
-                onClick={() => patch({ cat: c.key, specs: {} })}
-                aria-pressed={on}
-                className={`relative flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-start text-sm sm:py-2 transition-colors ${
-                  on ? "text-white" : "text-mute hover:bg-white hover:text-ink"
-                }`}
-              >
-                {on && (
-                  <motion.span
-                    layoutId={`${idPrefix}-cat-pill`}
-                    transition={{ type: "spring", stiffness: 420, damping: 38 }}
-                    className="bg-accent-gradient-x absolute inset-0 rounded-lg"
-                  />
-                )}
-                <span className="relative flex-1">{c.name}</span>
-                <span
-                  className={`relative font-mono text-[11px] tabular-nums ${
-                    on ? "text-white/70" : "text-faint"
+              <div key={`${idPrefix}-${c.key}`}>
+                <button
+                  // a sub belongs to one category, so it cannot outlive a change
+                  // of category — leaving it would filter the new shelf to zero
+                  onClick={() => patch({ cat: c.key, sub: "all" })}
+                  aria-pressed={on}
+                  className={`relative flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-start text-sm sm:py-2 transition-colors ${
+                    on ? "text-white" : "text-mute hover:bg-white hover:text-ink"
                   }`}
                 >
-                  {cats[c.key] ?? 0}
-                </span>
-              </button>
+                  {on && (
+                    <motion.span
+                      layoutId={`${idPrefix}-cat-pill`}
+                      transition={{ type: "spring", stiffness: 420, damping: 38 }}
+                      className="bg-accent-gradient-x absolute inset-0 rounded-lg"
+                    />
+                  )}
+                  <span className="relative flex-1">{c.name}</span>
+                  <span
+                    className={`relative font-mono text-[11px] tabular-nums ${
+                      on ? "text-white/70" : "text-faint"
+                    }`}
+                  >
+                    {cats[c.key] ?? 0}
+                  </span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {nested.length > 0 && (
+                    <motion.ul
+                      key="subs"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: EASE }}
+                      className="filter-subs"
+                    >
+                      {[
+                        { key: "all", name: t("cata.allOf") },
+                        ...nested.map((sb) => ({ key: sb.key, name: t(`sub.${sb.key}`) })),
+                      ].map((sb) => {
+                        const subOn = state.sub === sb.key;
+                        const n = subN[sb.key] ?? 0;
+                        return (
+                          <li key={`${idPrefix}-sub-${sb.key}`}>
+                            <button
+                              onClick={() => patch({ sub: sb.key })}
+                              aria-pressed={subOn}
+                              data-empty={n === 0 || undefined}
+                              className={`filter-sub ${subOn ? "filter-sub--on" : ""}`}
+                            >
+                              <span className="flex-1 truncate">{sb.name}</span>
+                              <span className="filter-sub-n">{n}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
             );
           })}
-        </div>
+        </OptionList>
       </Section>
 
       <Section label={t("cata.price")}>
@@ -266,6 +331,7 @@ export function FilterPanel({
             <Option
               key={`${idPrefix}-${b}`}
               label={b}
+              icon={<BrandMark brand={b} />}
               on={state.brands.includes(b)}
               count={brandsN[b] ?? 0}
               onClick={() => toggleBrand(b)}
@@ -320,40 +386,6 @@ export function FilterPanel({
           <span className="flex-1">{t("cata.promoOnly")}</span>
           <span className="font-mono text-[11px] tabular-nums text-faint">{promoN}</span>
         </button>
-      </Section>
-
-      {/* Technical groups are whatever the chosen category's products describe
-          themselves with, so this section only exists once a category narrows
-          the field to specs that can be compared. */}
-      <Section
-        label={t("cata.technical")}
-        count={Object.values(state.specs).reduce((n, v) => n + v.length, 0)}
-        defaultOpen={false}
-      >
-        {state.cat === "all" ? (
-          <p className="px-2 py-1 text-xs leading-relaxed text-faint">{t("cata.techPickCat")}</p>
-        ) : facets.length === 0 ? (
-          <p className="px-2 py-1 text-xs leading-relaxed text-faint">{t("cata.techNone")}</p>
-        ) : (
-          <div className="space-y-5 pt-1">
-            {facets.map((f) => (
-              <div key={`${idPrefix}-${f.key}`}>
-                <p className="px-2 pb-1.5 text-xs font-semibold text-ink">{f.key}</p>
-                <OptionList total={f.values.length}>
-                  {f.values.map((v) => (
-                    <Option
-                      key={`${idPrefix}-${f.key}-${v.value}`}
-                      label={v.value}
-                      on={(state.specs[f.key] ?? []).includes(v.value)}
-                      count={v.count}
-                      onClick={() => toggleSpec(f.key, v.value)}
-                    />
-                  ))}
-                </OptionList>
-              </div>
-            ))}
-          </div>
-        )}
       </Section>
     </div>
   );

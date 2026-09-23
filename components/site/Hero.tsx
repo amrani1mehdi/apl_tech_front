@@ -6,6 +6,7 @@ import { AnimatePresence, motion, type Variants } from "motion/react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { BrandMarquee } from "./BrandMarquee";
 import { Magnetic } from "./Magnetic";
+import { formatDA } from "@/lib/products";
 import { useLocale } from "@/components/i18n/LocaleProvider";
 
 type Slide = {
@@ -14,16 +15,16 @@ type Slide = {
   specs?: string[];
   /** i18n keys, for copy-driven slides that need translating */
   specKeys?: string[];
-  price: string;
+  price: number;
   image: string;
   alt: string;
   href: string;
 };
 
 const SLIDES: Slide[] = [
-  { id: "s0", specKeys: ["hero.s0.spec1", "hero.s0.spec2", "hero.s0.spec3"], price: "149 000 DA", image: "/products/apl-promo.jpg", alt: "PC gamer APL Tech en promotion", href: "/catalogue" },
-  { id: "sb", specKeys: ["hero.sb.spec1", "hero.sb.spec2", "hero.sb.spec3"], price: "165 000 DA", image: "/products/ai-builder.jpg", alt: "Assemblage PC automatisé APL TECH", href: "/configurateur" },
-  { id: "sd", specKeys: ["hero.sd.spec1", "hero.sd.spec2", "hero.sd.spec3"], price: "800 DA", image: "/products/delivery-dz.jpg", alt: "Livraison APL TECH dans les 58 wilayas", href: "/catalogue" },
+  { id: "s0", specKeys: ["hero.s0.spec1", "hero.s0.spec2", "hero.s0.spec3"], price: 149_000, image: "/products/apl-promo.jpg", alt: "PC gamer APL Tech en promotion", href: "/catalogue" },
+  { id: "sb", specKeys: ["hero.sb.spec1", "hero.sb.spec2", "hero.sb.spec3"], price: 165_000, image: "/products/ai-builder.jpg", alt: "Assemblage PC automatisé APL TECH", href: "/configurateur" },
+  { id: "sd", specKeys: ["hero.sd.spec1", "hero.sd.spec2", "hero.sd.spec3"], price: 800, image: "/products/delivery-dz.jpg", alt: "Livraison APL TECH dans les 58 wilayas", href: "/catalogue" },
 ];
 
 const imgVariants: Variants = {
@@ -45,7 +46,7 @@ const textItem: Variants = {
 const DURATION = 6000;
 
 export function Hero() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [[index, dir], setState] = useState<[number, number]>([0, 1]);
   const [paused, setPaused] = useState(false);
   const len = SLIDES.length;
@@ -146,7 +147,7 @@ export function Hero() {
                   <p className="font-sans text-[10px] font-semibold uppercase text-white/60">
                     {t("c.from")}
                   </p>
-                  <p className="font-display text-xl font-bold text-white">{slide.price}</p>
+                  <p className="font-display text-xl font-bold text-white">{formatDA(slide.price, locale)}</p>
                 </div>
               </motion.div>
             </motion.div>

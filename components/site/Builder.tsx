@@ -14,7 +14,7 @@ import { SHOWCASE, SHOWCASE_ROWS, buildTotal, showcasePart } from "@/lib/build";
 const TOTAL = buildTotal(SHOWCASE);
 
 export function Builder() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   return (
     <section className="relative isolate overflow-hidden bg-ink py-24 text-paper lg:py-32">
       {/* background plate */}
@@ -130,10 +130,9 @@ export function Builder() {
               {t("sec.build.estTotal")}
             </p>
             <p
-              dir="ltr"
               className="font-display text-[clamp(1.6rem,3vw,2.1rem)] font-bold leading-none text-paper"
             >
-              {formatDA(TOTAL)}
+              {formatDA(TOTAL, locale)}
             </p>
           </div>
         </motion.div>

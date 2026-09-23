@@ -10,10 +10,14 @@ export type Locale = "fr" | "ar" | "en";
 
 export const LOCALES: Locale[] = ["fr", "ar", "en"];
 
-/* French is the site's main language: the one an unmarked request lands in.
-   It still carries its segment (/fr/catalogue, never /catalogue) — one shape
-   for all three keeps links, canonical URLs and the switch free of special
-   cases. */
+/* French is the site's main language, and it is the one locale with no
+   segment of its own: the catalogue is /catalogue, not /fr/catalogue. The
+   other two keep theirs (/en/catalogue, /ar/catalogue).
+
+   The cost is a special case, and it is paid in exactly two places — the
+   `withLocale` below, which writes every link on the site, and proxy.ts,
+   which maps a bare path onto the /fr/… route that actually renders it.
+   Nothing else in the app knows the difference. */
 export const DEFAULT_LOCALE: Locale = "fr";
 
 /** written by the language switch, read by the proxy on an unmarked request */
@@ -32,9 +36,12 @@ export function splitLocale(pathname: string): { locale: Locale; path: string } 
   return { locale: head, path: path === "/" ? "/" : path.replace(/\/$/, "") };
 }
 
-/** "/catalogue" under "ar" -> "/ar/catalogue". Idempotent: a path that already
-    carries a locale is re-pointed rather than prefixed twice. */
+/** "/catalogue" under "ar" -> "/ar/catalogue", and under "fr" -> "/catalogue".
+    Idempotent: a path that already carries a locale is re-pointed rather than
+    prefixed twice, so switching from Arabic to French strips the segment
+    rather than stacking another one on top. */
 export function withLocale(pathname: string, locale: Locale): string {
   const { path } = splitLocale(pathname);
+  if (locale === DEFAULT_LOCALE) return path;
   return path === "/" ? `/${locale}` : `/${locale}${path}`;
 }

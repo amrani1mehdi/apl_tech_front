@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400" role="img" aria-label="minecraft">
+  <defs>
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0%" stop-color="hsl(104 52% 34%)"/>
+  <stop offset="100%" stop-color="hsl(122 60% 17%)"/>
+  </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#g)"/><g transform="translate(100,0)">
+  <path d="M200 96 306 156 200 216 94 156Z" fill="#ffffff"/>
+  <path d="M94 156 200 216V330L94 270Z" fill="#ffffff" opacity="0.72"/>
+  <path d="M306 156 200 216V330L306 270Z" fill="#ffffff" opacity="0.46"/></g></svg>

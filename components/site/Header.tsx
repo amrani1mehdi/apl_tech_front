@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Link } from "@/components/i18n/LocaleLink";
 import { motion } from "motion/react";
-import { Search, ShoppingBag, Menu, X, User } from "lucide-react";
+import { Search, ShoppingBag, Menu, X, User, LayoutGrid, ChevronDown } from "lucide-react";
 import { Logo } from "./Logo";
 import { SearchOverlay } from "./SearchOverlay";
+import { CategoryDrawer } from "./CategoryDrawer";
 import { useCart } from "@/components/cart/CartProvider";
+import { initialOf, useAccount } from "@/components/auth/useAccount";
 import { useLocale } from "@/components/i18n/LocaleProvider";
 import { LOCALES, LOCALE_LABEL, splitLocale } from "@/lib/i18n";
 import { NAV } from "@/lib/nav";
@@ -16,6 +18,10 @@ export function Header() {
   const pathname = usePathname();
   const { count, openCart, bump } = useCart();
   const { t, locale, setLocale } = useLocale();
+  const { account } = useAccount();
+  /* signed out, the person icon is the way in; signed in, it is the account,
+     marked with the customer's initials so it reads as theirs */
+  const accountHref = account ? "/compte" : "/connexion";
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   /** stays mounted through the collapse so the circle can animate shut */
@@ -44,6 +50,8 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   // where the circular reveal should grow from — the icon the user clicked
   const [searchOrigin, setSearchOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [catsOpen, setCatsOpen] = useState(false);
+  const closeCats = useCallback(() => setCatsOpen(false), []);
 
   // the path carries a locale segment now, so compare what sits under it
   const { path } = splitLocale(pathname);
@@ -56,12 +64,17 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  /* The categories panel keeps a lock of its own, and the menu hands straight
+     over to it. Without `catsOpen` here, closing the menu clears the lock the
+     panel has just taken: the page gets its scrollbar back behind the panel,
+     which re-lays out every fixed overlay 11px narrower and leaves a strip of
+     live page down the edge of a panel that is supposed to be modal. */
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    document.body.style.overflow = open || catsOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [open]);
+  }, [open, catsOpen]);
 
   useEffect(() => {
     if (open) {
@@ -76,9 +89,11 @@ export function Header() {
   // the two to read as one surface — even at the top of the home hero
   const over = overlay && !scrolled && !searchOpen;
   const solid = !over;
-  const iconBtn = over
-    ? "border-white/30 text-white/90 hover:border-white hover:text-white"
-    : "border-line text-mute hover:border-ink/30 hover:text-ink";
+  // Both states put the nav on a dark ground — transparent over the hero
+  // image, and the ink band everywhere else — so its contents are light
+  // throughout and no longer flip with `over`. Only the ground behind them
+  // changes, which is what the transition below animates.
+  const iconBtn = "border-white/30 text-white/90 hover:border-white hover:text-white";
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
@@ -89,17 +104,17 @@ export function Header() {
       <nav
         className={`relative z-50 transition-all duration-500 ${
           solid
-            ? "border-b border-line bg-cloud/85 backdrop-blur-md"
+            ? "border-b border-white/10 bg-ink/[0.92] backdrop-blur-md"
             : "border-b border-transparent bg-transparent"
         }`}
       >
-        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-6 px-5 py-4 lg:px-8">
+        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-3 px-4 py-4 sm:gap-6 sm:px-5 lg:px-8">
           <Link href="/" aria-label="APL TECH">
-            <Logo light={over} />
+            <Logo light />
           </Link>
 
           {/* links */}
-          <ul className="hidden items-center gap-7 lg:flex">
+          <ul className="hidden items-center gap-7 xl:flex">
             {NAV.map((item) => {
               const active = item.href === path;
               return (
@@ -107,18 +122,14 @@ export function Header() {
                   <Link
                     href={item.href}
                     className={`group relative py-1 text-sm font-medium transition-colors ${
-                      over
-                        ? "text-white/80 hover:text-white"
-                        : active
-                          ? "text-ink"
-                          : "text-mute hover:text-ink"
+                      active ? "text-white" : "text-white/70 hover:text-white"
                     }`}
                   >
                     {t(`nav.${item.k}`)}
                     <span
-                      className={`absolute -bottom-0.5 left-0 h-px w-full origin-left transition-transform duration-300 ease-out group-hover:scale-x-100 ${
+                      className={`absolute -bottom-0.5 left-0 h-px w-full origin-left bg-white transition-transform duration-300 ease-out group-hover:scale-x-100 ${
                         active ? "scale-x-100" : "scale-x-0"
-                      } ${over ? "bg-white" : "bg-ink"}`}
+                      }`}
                     />
                   </Link>
                 </li>
@@ -128,6 +139,27 @@ export function Header() {
 
           {/* actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Categories opens a panel rather than going anywhere, so it sits
+                with the other controls on the trailing side instead of among
+                the links — a button dressed as a destination was the one
+                entry in the middle row that did not take you to a page. Still
+                deliberately not in NAV: that list drives the page curtain,
+                which only runs between real destinations.
+
+                From `lg` only, like the links it used to sit with. Below that
+                the burger menu carries it, and a sixth control in this row
+                would crowd the cart on a tablet. */}
+            <button
+              type="button"
+              onClick={() => setCatsOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={catsOpen}
+              className={`hidden h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors xl:flex ${iconBtn}`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              {t("nav.categories")}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </button>
             <button
               aria-label={t("c.search")}
               // the bar leaves the nav clickable, so the icon toggles it
@@ -142,18 +174,22 @@ export function Header() {
             </button>
 
             <Link
-              href="/compte"
-              aria-label={t("c.account")}
-              className={`hidden h-9 w-9 place-items-center rounded-full border transition-colors sm:grid ${iconBtn}`}
+              href={accountHref}
+              aria-label={account ? t("c.account") : t("auth.tab.signIn")}
+              className={`hidden h-9 w-9 place-items-center rounded-full border transition-colors sm:grid ${
+                account ? "border-accent bg-accent text-white hover:border-white" : iconBtn
+              }`}
             >
-              <User className="h-[17px] w-[17px]" />
+              {account ? (
+                <span className="font-display text-[12px] font-bold leading-none">{initialOf(account)}</span>
+              ) : (
+                <User className="h-[17px] w-[17px]" />
+              )}
             </Link>
 
             {/* language */}
             <div
-              className={`hidden items-center gap-1 rounded-full border p-1 sm:flex ${
-                over ? "border-white/30" : "border-line"
-              }`}
+              className="hidden items-center gap-1 rounded-full border border-white/30 p-1 sm:flex"
             >
               {LOCALES.map((l) => (
                 <button
@@ -161,11 +197,7 @@ export function Header() {
                   onClick={() => setLocale(l)}
                   aria-label={l}
                   className={`relative grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-medium transition-colors ${
-                    locale === l
-                      ? "text-white"
-                      : over
-                        ? "text-white/60 hover:text-white"
-                        : "text-faint hover:text-ink"
+                    locale === l ? "text-white" : "text-white/60 hover:text-white"
                   }`}
                 >
                   {locale === l && (
@@ -202,9 +234,7 @@ export function Header() {
             <button
               aria-label={t("c.menu")}
               onClick={openMenu}
-              className={`grid h-9 w-9 place-items-center rounded-full border lg:hidden ${
-                over ? "border-white/30 text-white" : "border-line text-ink"
-              }`}
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/30 text-white xl:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -215,7 +245,7 @@ export function Header() {
       {/* ── Mobile menu, revealed by a circle from the burger ── */}
       {menuMounted && (
         <div
-          className="reveal-veil menu-veil lg:hidden"
+          className="reveal-veil menu-veil xl:hidden"
           data-open={menuExpanded || undefined}
           style={{
             ["--ox" as string]: `${menuOrigin.x}px`,
@@ -248,19 +278,34 @@ export function Header() {
               ))}
             </nav>
 
-            <Link
-              href="/compte"
-              onClick={closeMenu}
+            {/* the menu hands over to the panel rather than sitting under it,
+                so there is only ever one overlay on screen */}
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu();
+                setCatsOpen(true);
+              }}
               style={{ ["--i" as string]: NAV.length }}
+              className="reveal-item flex w-full items-center gap-3 border-b border-white/15 py-4 text-start font-display text-[clamp(1.9rem,9vw,2.6rem)] font-bold text-white transition-colors hover:text-white/60"
+            >
+              <LayoutGrid className="h-6 w-6 opacity-60" />
+              {t("nav.categories")}
+            </button>
+
+            <Link
+              href={accountHref}
+              onClick={closeMenu}
+              style={{ ["--i" as string]: NAV.length + 1 }}
               className="reveal-item flex items-center gap-3 border-b border-white/15 py-4 font-display text-[clamp(1.9rem,9vw,2.6rem)] font-bold text-white transition-colors hover:text-white/60"
             >
               <User className="h-6 w-6 opacity-60" />
-              {t("c.account")}
+              {account ? t("c.account") : t("auth.tab.signIn")}
             </Link>
 
             <div
               className="reveal-item mt-8 flex items-center gap-2"
-              style={{ ["--i" as string]: NAV.length + 1 }}
+              style={{ ["--i" as string]: NAV.length + 2 }}
             >
               {LOCALES.map((l) => (
                 <button
@@ -282,7 +327,7 @@ export function Header() {
                 closeMenu();
                 openCart();
               }}
-              style={{ ["--i" as string]: NAV.length + 2 }}
+              style={{ ["--i" as string]: NAV.length + 3 }}
               className="btn-accent reveal-item mt-6 flex w-full items-center justify-center gap-2 rounded-full py-4 font-semibold"
             >
               <ShoppingBag className="h-5 w-5" /> {t("cart.viewCart")} ({count})
@@ -292,6 +337,8 @@ export function Header() {
       )}
 
       <SearchOverlay open={searchOpen} origin={searchOrigin} onClose={() => setSearchOpen(false)} />
+
+      <CategoryDrawer open={catsOpen} onClose={closeCats} />
     </header>
   );
 }

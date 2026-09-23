@@ -13,13 +13,14 @@ export type Availability = "all" | "in" | "pre" | "out";
 export type FilterState = {
   /** category key, or "all" */
   cat: string;
+  /** subcategory key, or "all" — a narrower shelf inside `cat`, never across
+      categories, so choosing a different `cat` clears it */
+  sub: string;
   brands: string[];
   /** null means the whole range — an untouched slider is not a filter */
   price: { min: number; max: number } | null;
   availability: Availability;
   promoOnly: boolean;
-  /** spec key → chosen values, already normalised by specToken */
-  specs: Record<string, string[]>;
   /** the header's search term, which narrows exactly like any other group */
   q: string;
 };
@@ -29,46 +30,20 @@ export type FilterPatch = Partial<Omit<FilterState, "q">>;
 
 export const NO_FILTERS: Omit<FilterState, "q"> = {
   cat: "all",
+  sub: "all",
   brands: [],
   price: null,
   availability: "all",
   promoOnly: false,
-  specs: {},
 };
-
-/* ── Spec normalisation ───────────────────────────────────────────────────
-   Spec values are written for a human reading one product ("16 Go GDDR7",
-   "1 To NVMe"), so filtering on them raw gives one option per product. A
-   value that opens with a quantity is reduced to that quantity, which is the
-   part several products can share; anything else is kept verbatim, because
-   "AM5" and "Optiques Gen-3" are already the thing you would filter by. */
-const QUANTITY = /^(\d+(?:[.,]\d+)?)\s*(Go|To|Mo|Ko|GHz|MHz|Hz|W|mm|ms|g|h|%|″|")/i;
-
-export function specToken(value: string): string {
-  const m = QUANTITY.exec(value.trim());
-  if (!m) return value.trim();
-  const [, n, unit] = m;
-  // a space before % reads as French typography; before ″ it reads as a typo
-  return unit === "″" || unit === '"' ? `${n}${unit}` : `${n} ${unit}`;
-}
-
-/** Numeric where the values start with a number, alphabetical otherwise. */
-function compareTokens(a: string, b: string): number {
-  const na = parseFloat(a.replace(",", "."));
-  const nb = parseFloat(b.replace(",", "."));
-  if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
-  return a.localeCompare(b, "fr");
-}
 
 /* ── Selection ──────────────────────────────────────────────────────────── */
 
-export type Group = "cat" | "brand" | "price" | "availability" | "promo" | "term";
+export type Group = "cat" | "sub" | "brand" | "price" | "availability" | "promo" | "term";
 
 type Options = {
-  /** groups to leave out — how a facet counts itself */
+  /** groups to leave out — how a group counts itself */
   except?: Group[];
-  /** spec key to leave out, or "*" for every spec constraint */
-  exceptSpec?: string;
 };
 
 function haystack(p: Product): string {
@@ -85,12 +60,10 @@ function haystack(p: Product): string {
 export function selectProducts(s: FilterState, o: Options = {}): Product[] {
   const skip = new Set(o.except ?? []);
   const term = s.q.trim().toLowerCase();
-  const specEntries = Object.entries(s.specs).filter(
-    ([k, v]) => v.length > 0 && o.exceptSpec !== "*" && k !== o.exceptSpec,
-  );
 
   return PRODUCTS.filter((p) => {
     if (!skip.has("cat") && s.cat !== "all" && p.category !== s.cat) return false;
+    if (!skip.has("sub") && s.sub !== "all" && p.subcategory !== s.sub) return false;
     if (!skip.has("brand") && s.brands.length > 0 && !s.brands.includes(p.brand)) return false;
     if (!skip.has("price") && s.price && (p.price < s.price.min || p.price > s.price.max))
       return false;
@@ -103,9 +76,6 @@ export function selectProducts(s: FilterState, o: Options = {}): Product[] {
     }
     if (!skip.has("promo") && s.promoOnly && p.oldPrice === undefined) return false;
     if (!skip.has("term") && term && !haystack(p).includes(term)) return false;
-    for (const [k, values] of specEntries) {
-      if (!p.specs.some((sp) => sp.k === k && values.includes(specToken(sp.v)))) return false;
-    }
     return true;
   });
 }
@@ -119,8 +89,18 @@ function tally<T extends string>(list: Product[], of: (p: Product) => T): Record
 }
 
 export function categoryCounts(s: FilterState): Record<string, number> {
-  const pool = selectProducts(s, { except: ["cat"] });
+  /* the sub is lifted out alongside the cat: a count shown against
+     "Processeurs" while "SSD NVMe" was still applied would read 0 on every
+     category but the one that sub belongs to. */
+  const pool = selectProducts(s, { except: ["cat", "sub"] });
   return { all: pool.length, ...tally(pool, (p) => p.category) };
+}
+
+/** Counts for the shelves inside the chosen category, keyed by sub key.
+    `all` is the category's own total, which is what the "Tout" row shows. */
+export function subCounts(s: FilterState): Record<string, number> {
+  const pool = selectProducts(s, { except: ["sub"] });
+  return { all: pool.length, ...tally(pool, (p) => p.subcategory ?? "") };
 }
 
 export function brandCounts(s: FilterState): Record<string, number> {
@@ -168,67 +148,18 @@ export function effectivePrice(
   };
 }
 
-/* ── Technical facets ─────────────────────────────────────────────────────
-   Built from the specs the products in the chosen category actually carry,
-   so the section changes shape between graphics cards and monitors without
-   a hand-written list to maintain.
-
-   Only inside a category: across the whole catalogue the keys are dozens of
-   one-off marketing lines, and a section of those is noise. A key also has to
-   describe at least two products and offer at least two distinct values —
-   below that it is a label for a single product, not a filter. */
-export type Facet = { key: string; values: { value: string; count: number }[] };
-
-const MIN_PRODUCTS = 2;
-const MIN_VALUES = 2;
-
-export function specFacets(s: FilterState): Facet[] {
-  if (s.cat === "all") return [];
-
-  const pool = selectProducts(s, { exceptSpec: "*" });
-  const keys = new Map<string, Set<string>>();
-  const seenBy = new Map<string, number>();
-
-  for (const p of pool) {
-    const own = new Set<string>();
-    for (const sp of p.specs) {
-      if (!keys.has(sp.k)) keys.set(sp.k, new Set());
-      keys.get(sp.k)!.add(specToken(sp.v));
-      own.add(sp.k);
-    }
-    for (const k of own) seenBy.set(k, (seenBy.get(k) ?? 0) + 1);
-  }
-
-  const facets: Facet[] = [];
-  for (const [key, tokens] of keys) {
-    if ((seenBy.get(key) ?? 0) < MIN_PRODUCTS || tokens.size < MIN_VALUES) continue;
-    // counted with this key's own choices lifted, like every other group
-    const base = selectProducts(s, { exceptSpec: key });
-    const values = [...tokens]
-      .map((value) => ({
-        value,
-        count: base.filter((p) => p.specs.some((sp) => sp.k === key && specToken(sp.v) === value))
-          .length,
-      }))
-      .sort((a, b) => compareTokens(a.value, b.value));
-    facets.push({ key, values });
-  }
-  return facets.sort((a, b) => b.values.length - a.values.length);
-}
-
 /* ── Summary ────────────────────────────────────────────────────────────── */
 
 /** How many separate narrowings are in force, search term excluded. */
 export function activeFilterCount(s: FilterState, bounds: { min: number; max: number }): number {
-  const specCount = Object.values(s.specs).reduce((n, v) => n + v.length, 0);
   const priced = s.price !== null && (s.price.min > bounds.min || s.price.max < bounds.max);
   return (
     (s.cat !== "all" ? 1 : 0) +
+    (s.sub !== "all" ? 1 : 0) +
     s.brands.length +
     (priced ? 1 : 0) +
     (s.availability !== "all" ? 1 : 0) +
-    (s.promoOnly ? 1 : 0) +
-    specCount
+    (s.promoOnly ? 1 : 0)
   );
 }
 
@@ -248,21 +179,12 @@ export const SPEC_SEP = { group: ";", key: "~", value: "|" } as const;
 export function serializeFilters(s: Omit<FilterState, "q">, q: string, sort: string): string {
   const p = new URLSearchParams();
   if (s.cat !== "all") p.set("cat", s.cat);
+  if (s.sub !== "all") p.set("sub", s.sub);
   if (q.trim()) p.set("q", q.trim());
   if (s.brands.length) p.set("brand", s.brands.join(SPEC_SEP.value));
   if (s.price) p.set("price", `${s.price.min}-${s.price.max}`);
   if (s.availability !== "all") p.set("avail", s.availability);
   if (s.promoOnly) p.set("promo", "1");
-
-  const specs = Object.entries(s.specs).filter(([, v]) => v.length > 0);
-  if (specs.length) {
-    p.set(
-      "spec",
-      specs
-        .map(([k, v]) => `${k}${SPEC_SEP.key}${v.join(SPEC_SEP.value)}`)
-        .join(SPEC_SEP.group),
-    );
-  }
 
   if (sort && sort !== "pop") p.set("sort", sort);
   return p.toString();
@@ -285,29 +207,16 @@ export function parseFilters(qs: string | URLSearchParams): {
     if (Number.isFinite(lo) && Number.isFinite(hi) && lo <= hi) price = { min: lo, max: hi };
   }
 
-  const specs: Record<string, string[]> = {};
-  for (const group of (p.get("spec") ?? "").split(SPEC_SEP.group)) {
-    if (!group) continue;
-    const at = group.indexOf(SPEC_SEP.key);
-    if (at < 1) continue;
-    const key = group.slice(0, at);
-    const values = group
-      .slice(at + 1)
-      .split(SPEC_SEP.value)
-      .filter(Boolean);
-    if (values.length) specs[key] = values;
-  }
-
   const avail = p.get("avail") as Availability | null;
 
   return {
     filters: {
       cat: p.get("cat") ?? "all",
+      sub: p.get("sub") ?? "all",
       brands: (p.get("brand") ?? "").split(SPEC_SEP.value).filter(Boolean),
       price,
       availability: avail && AVAIL.has(avail) ? avail : "all",
       promoOnly: p.get("promo") === "1",
-      specs,
     },
     q: p.get("q") ?? "",
     sort: p.get("sort"),

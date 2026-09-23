@@ -258,7 +258,7 @@ export function SearchOverlay({
                             {p.name}
                           </span>
                           <span className="mt-1.5 block font-display text-sm font-bold text-white">
-                            {formatDA(p.price)}
+                            {formatDA(p.price, locale)}
                           </span>
                         </span>
                       </Link>

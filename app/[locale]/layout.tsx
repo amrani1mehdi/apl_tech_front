@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import "../globals.css";
 import { LocaleProvider } from "@/components/i18n/LocaleProvider";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { WishlistProvider } from "@/components/site/WishlistProvider";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { PageTransition } from "@/components/site/PageTransition";
+import { SplitTransition } from "@/components/site/SplitTransition";
+import { BuilderTransition } from "@/components/site/BuilderTransition";
 import { LOCALES, dirOf, isLocale } from "@/lib/locales";
 
 export const metadata: Metadata = {
@@ -24,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f3f1ea",
+  themeColor: "#f1f0f5",
   width: "device-width",
   initialScale: 1,
 };
@@ -49,12 +52,16 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[lo
           further, so a genuine mismatch inside the page still surfaces. */}
       <body className="min-h-full bg-paper text-ink" suppressHydrationWarning>
         <LocaleProvider locale={locale}>
-          <CartProvider>
-            <PageTransition />
-            <Header />
-            {children}
-            <Footer />
-          </CartProvider>
+          <WishlistProvider>
+            <CartProvider>
+              <PageTransition />
+              <SplitTransition />
+              <BuilderTransition />
+              <Header />
+              {children}
+              <Footer />
+            </CartProvider>
+          </WishlistProvider>
         </LocaleProvider>
       </body>
     </html>

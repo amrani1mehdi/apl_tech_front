@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node --max-old-space-size=3072 node_modules/next/dist/bin/next dev",
+    "dev": "node scripts/next-capped.mjs dev",
     "dev:uncapped": "next dev",
-    "build": "next build",
+    "build": "node scripts/next-capped.mjs build",
     "start": "next start",
     "lint": "eslint"
   },

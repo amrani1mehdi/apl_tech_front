@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400" role="img" aria-label="apex">
+  <defs>
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0%" stop-color="hsl(2 52% 34%)"/>
+  <stop offset="100%" stop-color="hsl(20 60% 17%)"/>
+  </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#g)"/><g transform="translate(100,0)">
+  <path d="M200 92 322 302H78Z" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M200 188 250 274H150Z" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" /></g></svg>

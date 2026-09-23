@@ -80,3 +80,58 @@ export const SHOWCASE_ROWS = ["cpu", "gpu", "ram", "ssd", "cooling"] as const;
 
 export const showcasePart = (key: string) =>
   PARTS.find((p) => p.key === key)!.options[SHOWCASE[key]];
+
+/* ── the hand-off from a product page — PRD-08 ───────────────────────────── */
+
+/** lowercase, letters and digits only, so "RX 9070 XT" meets "rx-9070-xt" */
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * The builder option that *is* this catalogue product, if it sells one.
+ *
+ * Scored on shared words rather than matched exactly: the catalogue calls it
+ * "Radeon RX 9070 XT" and the builder lists "RX 9070 XT 16 Go", and neither
+ * name is going to be rewritten to suit the other. Longer words count for
+ * more, because the model number is what identifies a part — "RTX" is shared
+ * by everything NVIDIA has ever made.
+ *
+ * The floor is what stops a coincidence being treated as a match: one short
+ * word in common scores below it and returns nothing, which leaves the
+ * configurator on its defaults rather than pinning the wrong card.
+ */
+const MATCH_FLOOR = 6;
+
+type Hit = { part: string; index: number; score: number };
+
+export function findOption(productName: string): { part: string; index: number } | null {
+  const words = norm(productName)
+    .split(" ")
+    .filter((w) => w.length > 1);
+
+  const hits: Hit[] = PARTS.flatMap((part) =>
+    part.options.map((opt, index) => ({
+      part: part.key,
+      index,
+      score: words.reduce((sum, w) => (norm(opt.name).includes(w) ? sum + w.length : sum), 0),
+    })),
+  );
+
+  const best = hits.reduce<Hit | null>(
+    (top, hit) => (top === null || hit.score > top.score ? hit : top),
+    null,
+  );
+
+  return best && best.score >= MATCH_FLOOR ? { part: best.part, index: best.index } : null;
+}
+
+/* A line id for a configured build. Lives here rather than inline in the
+   configurator because a build is not a catalogue product and still needs to
+   be told apart from every other build in the cart — two machines configured
+   differently are two lines, and two configured identically are still two
+   things somebody chose. */
+let seq = 0;
+
+export function buildId(): string {
+  seq += 1;
+  return `build-${Date.now().toString(36)}-${seq.toString(36)}`;
+}

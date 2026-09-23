@@ -57,8 +57,20 @@ export function FilterChips({
 
   const chips: { id: string; label: string; clear: () => void }[] = [
     ...(state.q ? [{ id: `q:${state.q}`, label: `« ${state.q} »`, clear: onClearSearch }] : []),
+    /* Clearing the category clears the sub with it — a sub belongs to one
+       category, so leaving it behind would narrow the whole catalogue to a
+       shelf that is no longer on screen anywhere. */
     ...(state.cat !== "all"
-      ? [{ id: `cat:${state.cat}`, label: catName(state.cat, locale), clear: () => patch({ cat: "all", specs: {} }) }]
+      ? [
+          {
+            id: `cat:${state.cat}`,
+            label: catName(state.cat, locale),
+            clear: () => patch({ cat: "all", sub: "all" }),
+          },
+        ]
+      : []),
+    ...(state.sub !== "all"
+      ? [{ id: `sub:${state.sub}`, label: t(`sub.${state.sub}`), clear: () => patch({ sub: "all" }) }]
       : []),
     ...state.brands.map((b) => ({
       id: `brand:${b}`,
@@ -69,7 +81,7 @@ export function FilterChips({
       ? [
           {
             id: "price",
-            label: `${formatDA(state.price.min)} – ${formatDA(state.price.max)}`,
+            label: `${formatDA(state.price.min, locale)} – ${formatDA(state.price.max, locale)}`,
             clear: () => patch({ price: null }),
           },
         ]
@@ -86,19 +98,6 @@ export function FilterChips({
     ...(state.promoOnly
       ? [{ id: "promo", label: t("cata.promoOnly"), clear: () => patch({ promoOnly: false }) }]
       : []),
-    ...Object.entries(state.specs).flatMap(([key, values]) =>
-      values.map((v) => ({
-        id: `spec:${key}:${v}`,
-        label: `${key} · ${v}`,
-        clear: () => {
-          const next = values.filter((x) => x !== v);
-          const specs = { ...state.specs };
-          if (next.length) specs[key] = next;
-          else delete specs[key];
-          patch({ specs });
-        },
-      })),
-    ),
   ];
 
   return (

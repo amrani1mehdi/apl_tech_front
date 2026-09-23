@@ -7,7 +7,7 @@ import { useCart } from "@/components/cart/CartProvider";
 import { useLocale } from "@/components/i18n/LocaleProvider";
 import { catName } from "@/lib/i18n";
 import { ProductBadges, StockLine } from "./ProductBadges";
-import { isOrderable, type Product } from "@/lib/products";
+import { defaultVariantOf, isOrderable, type Product } from "@/lib/products";
 
 /** how long the button stays on its confirmed state after a click */
 const ADDED_MS = 1400;
@@ -39,7 +39,7 @@ export function ProductRow({ product: p }: { product: Product }) {
 
   const add = (e: React.MouseEvent<HTMLButtonElement>) => {
     addItem(
-      { slug: p.slug, name: p.name, image: p.image, price: p.price },
+      { slug: p.slug, name: p.name, image: p.image, price: p.price, variant: defaultVariantOf(p) },
       1,
       e.currentTarget.closest("[data-card]")?.querySelector("img"),
     );
@@ -91,7 +91,7 @@ export function ProductRow({ product: p }: { product: Product }) {
             href={`/produit/${p.slug}`}
             className="mt-2 block font-display text-base font-bold leading-tight text-ink transition-colors group-hover:text-accent sm:text-lg"
           >
-            {p.name}
+            <bdi>{p.name}</bdi>
           </Link>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -109,7 +109,7 @@ export function ProductRow({ product: p }: { product: Product }) {
                 <div key={s.k} className="flex min-w-0 items-baseline gap-2 text-xs">
                   <dt className="shrink-0 text-faint">{s.k}</dt>
                   <span aria-hidden className="h-px min-w-3 flex-1 bg-line-soft" />
-                  <dd className="truncate font-medium text-mute">{s.v}</dd>
+                  <dd className="truncate font-medium text-mute"><bdi>{s.v}</bdi></dd>
                 </div>
               ))}
             </dl>
@@ -117,10 +117,10 @@ export function ProductRow({ product: p }: { product: Product }) {
         </div>
 
         {/* ── price and action ── */}
-        <div className="flex shrink-0 items-end justify-between gap-3 lg:w-44 lg:flex-col lg:items-end lg:justify-start lg:border-s lg:border-line-soft lg:ps-6">
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2 lg:w-48 lg:shrink-0 lg:flex-nowrap lg:flex-col lg:items-end lg:justify-start lg:border-s lg:border-line-soft lg:ps-6">
           <div className="lg:text-end">
             <p className="flex items-baseline gap-1.5 lg:justify-end">
-              <span className="font-display text-xl font-bold text-ink">
+              <span className="font-display text-lg font-bold text-ink sm:text-xl">
                 {p.price.toLocaleString("fr-FR")}
               </span>
               <span className="text-xs font-medium text-mute">DA</span>
@@ -135,7 +135,7 @@ export function ProductRow({ product: p }: { product: Product }) {
           <button
             disabled={!isOrderable(p)}
             onClick={add}
-            className={`flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed lg:mt-3 lg:w-full ${
+            className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed sm:px-3.5 sm:py-2.5 sm:text-[13px] lg:mt-3 lg:w-full ${
               isOrderable(p)
                 ? "btn-accent"
                 : "border border-line bg-paper text-mute"
@@ -143,20 +143,20 @@ export function ProductRow({ product: p }: { product: Product }) {
           >
             <span className="grid">
               <span
-                className={`col-start-1 row-start-1 flex items-center justify-center gap-2 transition-all duration-200 ease-out ${
+                className={`col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out ${
                   added ? "-translate-y-[70%] opacity-0" : "translate-y-0 opacity-100"
                 }`}
               >
-                <ShoppingBag className="h-4 w-4" />
+                <ShoppingBag className="h-3.5 w-3.5" />
                 {p.preorder ? t("c.preorder") : p.stock ? t("c.addToCart") : t("c.unavailable")}
               </span>
               <span
                 aria-hidden={!added}
-                className={`pointer-events-none col-start-1 row-start-1 flex items-center justify-center gap-2 transition-all duration-200 ease-out ${
+                className={`pointer-events-none col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out ${
                   added ? "translate-y-0 opacity-100" : "translate-y-[70%] opacity-0"
                 }`}
               >
-                <Check className="h-4 w-4" strokeWidth={3} />
+                <Check className="h-3.5 w-3.5" strokeWidth={3} />
                 {t("c.added")}
               </span>
             </span>

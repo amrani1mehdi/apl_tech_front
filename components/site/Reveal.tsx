@@ -7,7 +7,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
  * the hidden state never reaches server HTML — without JS everything renders
  * visible instead of blank.
  */
-function useReveal<T extends HTMLElement>(rootMargin = "0px 0px -12% 0px") {
+export function useReveal<T extends HTMLElement>(rootMargin = "0px 0px -12% 0px") {
   const ref = useRef<T>(null);
   const [armed, setArmed] = useState(false);
   const [inView, setInView] = useState(false);

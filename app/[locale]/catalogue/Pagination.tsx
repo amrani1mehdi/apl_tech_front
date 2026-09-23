@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useLocale } from "@/components/i18n/LocaleProvider";
 
 /**
@@ -23,8 +24,11 @@ function pagesFor(current: number, total: number): (number | "gap")[] {
   return out;
 }
 
+/* `relative` so the travelling pill has something to sit inside, and every
+   box carries a border — transparent on the current page — so that turning a
+   page cannot shift the row by the two pixels a border occupies. */
 const BOX =
-  "grid h-10 min-w-10 place-items-center rounded-full px-3 text-sm font-medium transition-colors";
+  "relative grid h-10 min-w-10 place-items-center rounded-full border px-3 text-sm font-medium transition-colors";
 
 /**
  * Numbered pages — the desktop control.
@@ -43,6 +47,7 @@ export function Pagination({
   onChange: (next: number) => void;
 }) {
   const { t } = useLocale();
+  const reduced = useReducedMotion();
   if (pageCount <= 1) return null;
 
   const step = (delta: number) => onChange(Math.min(pageCount, Math.max(1, page + delta)));
@@ -52,18 +57,19 @@ export function Pagination({
       aria-label={t("cata.pagination")}
       className="mt-10 hidden flex-wrap items-center justify-center gap-1.5 border-t border-line pt-8 lg:flex"
     >
-      <button
+      <motion.button
         onClick={() => step(-1)}
         disabled={page === 1}
+        whileTap={reduced ? undefined : { scale: 0.88 }}
         aria-label={t("cata.prev")}
-        className={`${BOX} border border-line text-ink disabled:cursor-not-allowed disabled:border-line-soft disabled:text-faint enabled:hover:border-ink/30`}
+        className={`${BOX} border-line text-ink disabled:cursor-not-allowed disabled:border-line-soft disabled:text-faint enabled:hover:border-ink/30`}
       >
         <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
-      </button>
+      </motion.button>
 
       {pagesFor(page, pageCount).map((p, i) =>
         p === "gap" ? (
-          <span key={`gap-${i}`} className={`${BOX} text-faint`} aria-hidden>
+          <span key={`gap-${i}`} className={`${BOX} border-transparent text-faint`} aria-hidden>
             …
           </span>
         ) : (
@@ -74,23 +80,39 @@ export function Pagination({
             aria-current={p === page ? "page" : undefined}
             className={`${BOX} ${
               p === page
-                ? "bg-accent-gradient-x font-semibold text-white"
-                : "border border-line text-mute hover:border-ink/30 hover:text-ink"
+                ? "border-transparent font-semibold text-white"
+                : "border-line text-mute hover:border-ink/30 hover:text-ink"
             }`}
           >
-            {p}
+            {/* The same travelling pill as the view toggle and the category
+                rail: rather than the highlight blinking out on 1 and in on 2,
+                one pill walks the row and the eye follows it to the page it
+                landed on. Softer than the toggle's spring because it covers
+                far more ground — the row can be seven boxes wide, and a
+                stiffer one overshoots the far end. */}
+            {p === page && (
+              <motion.span
+                layoutId="page-pill"
+                transition={
+                  reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }
+                }
+                className="bg-accent-gradient-x absolute inset-0 rounded-full"
+              />
+            )}
+            <span className="relative">{p}</span>
           </button>
         ),
       )}
 
-      <button
+      <motion.button
         onClick={() => step(1)}
         disabled={page === pageCount}
+        whileTap={reduced ? undefined : { scale: 0.88 }}
         aria-label={t("cata.next")}
-        className={`${BOX} border border-line text-ink disabled:cursor-not-allowed disabled:border-line-soft disabled:text-faint enabled:hover:border-ink/30`}
+        className={`${BOX} border-line text-ink disabled:cursor-not-allowed disabled:border-line-soft disabled:text-faint enabled:hover:border-ink/30`}
       >
         <ChevronRight className="h-4 w-4 rtl:rotate-180" />
-      </button>
+      </motion.button>
     </nav>
   );
 }

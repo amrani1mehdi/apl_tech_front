@@ -15,24 +15,35 @@ import { AplGradient } from "./Logo";
  * clicks are intercepted, the cover animation runs, and only then is the
  * navigation pushed — behind the curtain. Timings mirror globals.css.
  *
- * Two rules decide whether it runs at all, both in `shouldCover` below: it is
- * for crossing between the site's top-level sections, and it happens once a
- * visit. Everything else navigates plainly.
+ * One rule decides whether it runs at all, in `shouldCover` below: it is for
+ * crossing between the site's top-level sections. Everything else — a product,
+ * the cart, checkout, the account, a filter, the language switch — navigates
+ * plainly.
  */
-const COVER_MS = 500;
-/** How long the covered state lasts at minimum, so the mark can draw. */
-const HOLD_MIN_MS = 650;
-const REVEAL_MS = 500;
+
+/**
+ * Two paces for the same curtain.
+ *
+ * The mark drawing itself is an arrival flourish, and an arrival that plays at
+ * full length on every click stops being one — by the third crossing it is
+ * just latency the reader has to sit through. So the full draw is kept for the
+ * first crossing of a visit and every one after it runs brisk: the same panel
+ * and the same mark, roughly half the time, no outline pass. The brand beat
+ * survives; the waiting does not.
+ */
+const PACE = {
+  first: { cover: 500, hold: 650, reveal: 500 },
+  again: { cover: 300, hold: 180, reveal: 300 },
+} as const;
 /** Never hold the curtain longer than this, whatever the network is doing. */
 const MAX_HOLD_MS = 3500;
 
 type Phase = "idle" | "cover" | "hold" | "reveal";
 
-/* Once a visit. The curtain is an arrival flourish, and an arrival that
-   happens on every click stops being one — by the third crossing it is just
-   latency the reader has to sit through. sessionStorage rather than a
-   variable, so a reload mid-visit does not start it over; the variable is the
-   fallback for when storage is blocked, which at least holds for this load. */
+/* Remembers that the full draw has been seen, so the rest of the visit gets
+   the brisk pace. sessionStorage rather than a variable, so a reload mid-visit
+   does not start it over; the variable is the fallback for when storage is
+   blocked, which at least holds for this load. */
 const SEEN_KEY = "apl:curtain-shown";
 let shownThisLoad = false;
 
@@ -62,17 +73,26 @@ function shouldCover(fromUrl: string, toUrl: string) {
   const to = splitLocale(toUrl);
   // A filter, a sort, or the language switch is a step inside one section.
   if (from.path === to.path) return false;
+  // The PC Builder brings its own way in — see BuilderTransition. Only on the
+  // way *there*: leaving it is an ordinary crossing and keeps this curtain.
+  // Both would otherwise fire on the same click, and the panel that covers
+  // second is the one you would see.
+  if (to.path === "/configurateur") return false;
   // Product pages, the cart, checkout and the account sit inside a section
   // rather than beside it. Covering the screen to reach one makes the site
   // feel slower, not more considered.
-  if (!PRINCIPAL_PATHS.has(from.path) || !PRINCIPAL_PATHS.has(to.path)) return false;
-  return !alreadyShown();
+  return PRINCIPAL_PATHS.has(from.path) && PRINCIPAL_PATHS.has(to.path);
 }
 
 export function PageTransition() {
   const pathname = usePathname();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
+  /* Drives the CSS as well as the timers below, so the panel and the mark
+     agree on how long they have. Held in a ref too: the hold-to-reveal effect
+     reads it after the click handler that chose it has long since returned. */
+  const [run, setRun] = useState<keyof typeof PACE>("first");
+  const pace = useRef<(typeof PACE)[keyof typeof PACE]>(PACE.first);
   const target = useRef<string | null>(null);
   const holdStart = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -111,22 +131,29 @@ export function PageTransition() {
       // Next's Link checks defaultPrevented *after* running its own onClick,
       // so preventing here still lets menu/drawer close handlers fire.
       e.preventDefault();
+
+      // read before marking, or the first crossing of a visit never gets the
+      // full draw it is the whole point of
+      const key = alreadyShown() ? "again" : "first";
       markShown();
+      const p = PACE[key];
+      pace.current = p;
+      setRun(key);
 
       clearTimers();
       target.current = url.pathname + url.search;
       setPhase("cover");
 
-      after(COVER_MS, () => {
+      after(p.cover, () => {
         holdStart.current = Date.now();
         setPhase("hold");
         if (target.current) router.push(target.current);
       });
       // hard ceiling, so a stalled navigation can never strand the curtain
-      after(COVER_MS + MAX_HOLD_MS, () => {
+      after(p.cover + MAX_HOLD_MS, () => {
         target.current = null;
         setPhase("reveal");
-        after(REVEAL_MS, () => setPhase("idle"));
+        after(p.reveal, () => setPhase("idle"));
       });
     }
 
@@ -141,12 +168,12 @@ export function PageTransition() {
 
     target.current = null;
     const elapsed = Date.now() - holdStart.current;
-    const wait = Math.max(0, HOLD_MIN_MS - elapsed);
+    const wait = Math.max(0, pace.current.hold - elapsed);
 
     clearTimers();
     after(wait, () => {
       setPhase("reveal");
-      after(REVEAL_MS, () => setPhase("idle"));
+      after(pace.current.reveal, () => setPhase("idle"));
     });
   }, [pathname, phase, after, clearTimers]);
 
@@ -155,7 +182,7 @@ export function PageTransition() {
   if (phase === "idle") return null;
 
   return (
-    <div className="page-curtain" data-phase={phase} aria-hidden>
+    <div className="page-curtain" data-phase={phase} data-run={run} aria-hidden>
       <svg className="curtain-logo" viewBox={APL_VIEWBOX}>
         <defs>
           <AplGradient id="apl-curtain-grad" />

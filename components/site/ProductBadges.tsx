@@ -1,7 +1,13 @@
 "use client";
 
 import { useLocale } from "@/components/i18n/LocaleProvider";
-import { badgeKinds, discountPct, type BadgeKind, type Product } from "@/lib/products";
+import {
+  badgeKinds,
+  discountPct,
+  type BadgeKind,
+  type BadgeTone,
+  type Product,
+} from "@/lib/products";
 
 const LABEL: Record<BadgeKind, string> = {
   promo: "badge.promo",
@@ -10,14 +16,24 @@ const LABEL: Record<BadgeKind, string> = {
   out: "badge.out",
 };
 
-/* Four states, four weights of ink. Promo takes the brand gradient because it
-   is the one that is trying to sell you something; new takes solid ink; the
-   two that qualify availability stay quiet, because a loud badge saying you
-   cannot have the thing is just noise on every card that carries it. */
+/** Hand-written badge colours; the gradients live in globals.css. */
+export const BADGE_TONE: Record<BadgeTone, string> = {
+  sale: "badge-sale",
+  new: "badge-new",
+  gold: "badge-gold",
+  brand: "badge-brand",
+  electric: "badge-electric",
+  ink: "badge-ink",
+};
+
+/* Each derived state has its own colour. Promo and new are the loud ones
+   because they are selling something; out-of-stock stays quiet, because a
+   loud badge saying you cannot have the thing is just noise on every card
+   that carries it. */
 const TONE: Record<BadgeKind, string> = {
-  promo: "bg-accent-gradient text-white",
-  new: "bg-ink text-paper",
-  preorder: "border border-accent/40 bg-paper/95 text-accent backdrop-blur",
+  promo: BADGE_TONE.sale,
+  new: BADGE_TONE.new,
+  preorder: "badge-preorder",
   out: "bg-paper/90 text-mute backdrop-blur",
 };
 
@@ -60,7 +76,7 @@ export function ProductBadges({
     badges.unshift({
       key: "authored",
       label: authored.label,
-      tone: authored.tone === "accent" ? TONE.promo : TONE.new,
+      tone: BADGE_TONE[authored.tone],
     });
   }
 
@@ -73,7 +89,13 @@ export function ProductBadges({
           key={b.key}
           className={`rounded-full px-2.5 py-1 text-[11px] font-bold leading-none ${b.tone}`}
         >
-          {b.label}
+          {/* <bdi> because a badge is as often a technical run as a word.
+              "-12%" holds no strong character at all, so an RTL page resolved
+              its sign and its percent to the paragraph direction and rendered
+              the whole thing as "12%-". Isolating it lets the algorithm treat
+              it as one unit and fall back to LTR inside — which is how a
+              discount is written in every language this shop speaks. */}
+          <bdi className="[unicode-bidi:plaintext]">{b.label}</bdi>
         </span>
       ))}
     </div>

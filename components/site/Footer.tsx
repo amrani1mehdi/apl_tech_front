@@ -15,25 +15,27 @@ const COLS = [
       { k: "nav.portables", href: "/catalogue?cat=portables" },
       { k: "nav.ecrans", href: "/catalogue?cat=ecrans" },
       { k: "nav.configurateur", href: "/configurateur" },
+      { k: "fid.shop", href: "/coupons" },
     ],
   },
   {
     titleKey: "foot.help",
     items: [
-      { k: "foot.link.delivery", href: "#" },
-      { k: "foot.link.returns", href: "#" },
-      { k: "foot.link.warranty", href: "#" },
-      { k: "foot.link.faq", href: "#" },
-      { k: "foot.link.track", href: "#" },
-    ],
+      /* one page, four sections — each link lands on its own */
+      { k: "foot.link.delivery", href: "/aide#livraison" },
+      { k: "foot.link.returns", href: "/aide#retours" },
+      { k: "foot.link.warranty", href: "/aide#garantie" },
+      { k: "foot.link.faq", href: "/aide#faq" },
+      { k: "foot.link.track", href: "/suivi" },
+          ],
   },
   {
     titleKey: "foot.company",
     items: [
-      { k: "foot.link.about", href: "#" },
-      { k: "foot.link.stores", href: "#" },
-      { k: "foot.link.contact", href: "#" },
-      { k: "foot.link.blog", href: "#" },
+      { k: "foot.link.about", href: "/a-propos" },
+      /* Contact left the header, so this is the way in. */
+      { k: "foot.link.contact", href: "/contact" },
+      { k: "foot.link.blog", href: "/blog" },
     ],
   },
 ];

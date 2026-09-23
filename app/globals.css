@@ -1,21 +1,42 @@
 /* ── Type: Cabinet Grotesk (display) · General Sans (body) · JetBrains Mono (labels) ── */
 @import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@500,700,800&f[]=general-sans@300,400,500,600&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+/* ── and the Arabic ──
+   None of the three above draws a single Arabic glyph. Cabinet Grotesk and
+   General Sans are Latin-only, JetBrains Mono very nearly so — which meant the
+   entire Arabic site was rendered in whatever the operating system happened to
+   substitute. On Windows that is Tahoma at a weight the page never asked for;
+   on a phone it is something else again. Nobody chose any of it, and the first
+   thing anyone said about the Arabic build was that the type looked wrong.
+
+   Noto Sans Arabic, chosen for legibility over character. This site is almost
+   entirely small text — spec tables, part names, stock lines, micro labels —
+   and Noto's Arabic is the most openly drawn of the widely available faces:
+   generous counters, a large apparent size for its point size, and letterforms
+   that stay distinct from one another at 12px, which is where the difference
+   actually shows. IBM Plex Sans Arabic was here first and is a handsome face;
+   it is simply tighter, and tight is the wrong trade for a page of dense
+   technical copy.
+
+   The brand's personality is carried by the Latin display face, so the Arabic
+   is free to be the clear one rather than the characterful one. Variable
+   300–700, matching the weights the Latin stack asks for. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300..700&display=swap");
 @import "tailwindcss";
 
 /* ───────────────────────────  Design tokens (LIGHT)  ─────────────────── */
 @theme {
-  /* Surfaces — warm paper */
-  --color-paper: #f3f1ea;
-  --color-cloud: #fbfaf6;
+  /* Surfaces — cool grey, a trace of the brand purple in it */
+  --color-paper: #f1f0f5;
+  --color-cloud: #fafafc;
   --color-white: #ffffff;
-  --color-line: #e3dfd4;
-  --color-line-soft: #ece9df;
+  --color-line: #dfdee6;
+  --color-line-soft: #e8e8ef;
 
-  /* Ink — warm near-black */
-  --color-ink: #17160f;
-  --color-mute: #6c6a61;
-  --color-faint: #a4a195;
+  /* Ink — near-black on the same cool axis */
+  --color-ink: #15151a;
+  --color-mute: #69696f;
+  --color-faint: #a0a0a8;
 
   /* Brand gradient stops — used only by .bg-accent-gradient* */
   --color-accent-deep: #6e2382;
@@ -31,6 +52,23 @@
      this clears 6:1 while staying recognisably the same purple. */
   --color-accent-lit: #c47ad8;
 
+  /* ── Status ────────────────────────────────────────────────────────────
+     Two colours, and deliberately no third one for "fine".
+
+     A machine that assembles is the unremarkable case. Giving it a pale green
+     card with a tick in it congratulates the customer for the absence of a
+     problem, which is both the loudest thing on a page full of real figures
+     and the single most recognisable piece of generated-interface furniture.
+     So "everything is in order" is said in ink, like every other settled fact
+     here, and colour is reserved for the two states that actually want a
+     decision.
+
+     Both are darker and greyer than the stock ramps they replace — they are
+     meant to be read as *ink*, on the page's own white, rather than as tinted
+     chips laid on top of it. Each clears 5:1 on white. */
+  --color-warn: #8a6410;
+  --color-alert: #b0261c;
+
   /* Fonts */
   --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "General Sans", ui-sans-serif, system-ui, sans-serif;
@@ -38,8 +76,17 @@
 }
 
 /* ───────────────────────────────  Base  ──────────────────────────────── */
-* {
-  border-color: var(--color-line);
+/* In the base layer, not bare. Tailwind 4 puts its utilities in
+   `@layer utilities`, and an unlayered rule beats every layered one whatever
+   its specificity — so written bare, this default silently overrode every
+   border-colour class on the site. `border-alert` on an invalid field,
+   `border-accent` on a selected card, `border-white/10` on a dark drawer: all
+   of them rendered as this grey. In `@layer base` it stays the default for a
+   plain `border`, and any class that names a colour gets that colour. */
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
 }
 
 html {
@@ -73,6 +120,64 @@ body {
   letter-spacing: normal;
 }
 
+/* The Arabic face goes *after* the Latin ones in every stack, not before.
+   Font matching is per glyph: a Latin run — "RTX 5080", "DDR5-6000", every
+   product name in the catalogue — keeps the brand's own type, and only the
+   Arabic falls through to Plex. Putting Plex first would have re-set the
+   entire Arabic site's Latin in a different family than the French one, which
+   is a bigger change than the problem being fixed.
+
+   `--font-mono` is the same trick and matters more than it looks: those
+   micro-labels are half Latin digits (`8/8`, `450 W`) and half Arabic words,
+   and JetBrains Mono has no Arabic — so every one of them was rendering two
+   scripts from two unrelated fallbacks on one line. */
+[dir="rtl"] {
+  --font-sans: "General Sans", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cabinet Grotesk", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans Arabic", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Arabic reads smaller than Latin at the same pixel size, and it is not a
+   matter of taste: the script has no x-height to speak of, so the body of a
+   letter occupies a far smaller share of the em than a Latin lowercase does.
+   A 12px UI that is comfortable in French is genuinely hard to read in Arabic,
+   and this site is built almost entirely from 10–14px text.
+
+   The smallest tiers are therefore raised, and only the smallest — display
+   sizes are already large enough that scaling them would just cost line
+   breaks. The values are the pixel sizes this codebase actually uses, so a
+   Latin-sized class keeps its Latin size and its Arabic comes up to meet it.
+
+   Leading goes up with it. Arabic ascenders, descenders and the occasional
+   hamza need more room between lines than Latin at the same measure, and
+   `leading-tight` on a two-line Arabic heading clips them together. */
+/* Listed smallest first, and the order is load-bearing. These sit outside
+   Tailwind's cascade layers, so they beat every utility regardless of
+   specificity — including a responsive one. An element written
+   `text-xs sm:text-[13px]` matches two of these rules above 640px, and the
+   later rule wins; ascending order is what makes that the *larger* of the two,
+   which is what the responsive class was asking for. Insert new sizes in
+   order, not at the end. */
+[dir="rtl"] .text-\[9\.5px\]  { font-size: 10.5px; }
+[dir="rtl"] .text-\[10px\]    { font-size: 11px; }
+[dir="rtl"] .text-\[11px\]    { font-size: 12px; }
+[dir="rtl"] .text-\[11\.5px\] { font-size: 12.5px; }
+[dir="rtl"] .text-\[12px\]    { font-size: 13px; }
+[dir="rtl"] .text-\[12\.5px\] { font-size: 13.5px; }
+[dir="rtl"] .text-xs          { font-size: 0.8125rem; } /* 12px → 13px */
+[dir="rtl"] .text-\[13px\]    { font-size: 14px; }
+[dir="rtl"] .text-\[13\.5px\] { font-size: 14.5px; }
+[dir="rtl"] .text-\[14px\]    { font-size: 15px; }
+[dir="rtl"] .text-sm          { font-size: 0.9375rem; } /* 14px → 15px */
+[dir="rtl"] .text-\[14\.5px\] { font-size: 15.5px; }
+[dir="rtl"] .text-\[15px\]    { font-size: 16px; }
+[dir="rtl"] .text-\[15\.5px\] { font-size: 16.5px; }
+
+/* Only where the text is genuinely tight. `leading-none` is nearly always a
+   big number or a single-line figure, and loosening those would break the
+   instrument band's alignment. */
+[dir="rtl"] .leading-tight { line-height: 1.45; }
+
 ::-webkit-scrollbar {
   width: 11px;
   height: 11px;
@@ -81,7 +186,7 @@ body {
   background: var(--color-paper);
 }
 ::-webkit-scrollbar-thumb {
-  background: #d4d0c4;
+  background: #cfcfd7;
   border: 3px solid var(--color-paper);
   border-radius: 999px;
 }
@@ -167,6 +272,228 @@ body {
   .btn-accent:active {
     transform: none;
   }
+}
+
+/* product badges — one colour per meaning, so a shelf can be read by colour
+   before a single label is. Every badge carries a hairline inset highlight
+   along its top edge, which is what makes a flat pill read as a chip. */
+.badge-sale,
+.badge-new,
+.badge-gold,
+.badge-brand,
+.badge-electric,
+.badge-ink,
+.badge-preorder {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
+}
+
+/* discount — crimson into red. Stops kept deep enough that white 11px bold
+   still holds on the lighter end. */
+.badge-sale {
+  background-color: #d11f35;
+  background-image: linear-gradient(135deg, #b3123a 0%, #d61f30 55%, #e8412a 100%);
+  color: #fff;
+}
+
+/* new — mint into cyan. Too bright for white text, so it takes dark ink. */
+.badge-new {
+  background-color: #2ad9c0;
+  background-image: linear-gradient(135deg, #2ee6a8 0%, #2ad9c0 50%, #3cc8f2 100%);
+  color: #032b26;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
+}
+
+/* best seller — brushed gold. The ramp is wider than the pill and drifts,
+   so the bright band slides across it like light off metal. */
+.badge-gold {
+  background-color: #e3b54a;
+  background-image: linear-gradient(
+    110deg,
+    #b27d22 0%,
+    #e2ae45 22%,
+    #fbe7a6 42%,
+    #fff5d1 50%,
+    #f3cf6f 58%,
+    #d59e34 78%,
+    #b27d22 100%
+  );
+  background-size: 250% 100%;
+  color: #3a2504;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 0 rgb(122 80 10 / 0.35);
+  animation: badge-sheen 4.5s ease-in-out infinite;
+}
+@keyframes badge-sheen {
+  0%, 20% { background-position: 100% 0; }
+  80%, 100% { background-position: 0% 0; }
+}
+
+/* made to order — the brand purple */
+.badge-brand {
+  background-color: var(--color-accent-mid);
+  background-image: linear-gradient(
+    135deg,
+    var(--color-accent-deep) 0%,
+    var(--color-accent-mid) 52%,
+    var(--color-accent-bright) 100%
+  );
+  color: #fff;
+}
+
+/* gaming — electric blue into violet */
+.badge-electric {
+  background-color: #4f46e5;
+  background-image: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 50%, #8b2fd6 100%);
+  color: #fff;
+}
+
+.badge-ink {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* pre-order — a quiet blue tint: available, just not yet */
+.badge-preorder {
+  background-color: rgb(235 243 255 / 0.95);
+  color: #1d4ed8;
+  outline: 1px solid rgb(29 78 216 / 0.3);
+  outline-offset: -1px;
+  backdrop-filter: blur(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-gold {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+
+/* ── loyalty coupons — MODULE 8 ───────────────────────────────────────────
+   A coupon is drawn as a ticket rather than as a card with a ticket icon on
+   it: a body carrying what it takes off, a stub carrying what it costs, and
+   two notches punched where they meet.
+
+   The notches are paper-coloured discs rather than a mask. A mask would cut
+   the shadow along with the paper, and these only ever sit on the one flat
+   background, so a disc is both simpler and exact. `--stub` is the only
+   number that moves: the perforation, both notches and the stub's own width
+   are all measured from it, so they cannot drift apart. */
+.ticket {
+  --stub: 10.5rem;
+  --notch: 11px;
+  --perf-x: calc(100% - var(--stub));
+  position: relative;
+  display: flex;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(21 21 26 / 0.05),
+    0 8px 20px -14px rgb(21 21 26 / 0.3);
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease;
+}
+[dir="rtl"] .ticket {
+  --perf-x: var(--stub);
+}
+@media (max-width: 420px) {
+  .ticket {
+    --stub: 8rem;
+  }
+}
+
+/* Only the ones that can actually be bought lift — the movement is the
+   affordance, so spending it on a locked row would be a lie. */
+.ticket-live:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 2px rgb(21 21 26 / 0.05),
+    0 14px 26px -16px rgb(146 45 169 / 0.45);
+}
+
+/* not issued: still a ticket, just never printed */
+.ticket-locked {
+  background: var(--color-cloud);
+  box-shadow: inset 0 0 0 1px var(--color-line-soft);
+}
+
+.ticket-notch {
+  position: absolute;
+  left: var(--perf-x);
+  width: calc(var(--notch) * 2);
+  height: calc(var(--notch) * 2);
+  margin-left: calc(var(--notch) * -1);
+  border-radius: 9999px;
+  background: var(--color-paper);
+}
+.ticket-notch-top {
+  top: calc(var(--notch) * -1);
+}
+.ticket-notch-bottom {
+  bottom: calc(var(--notch) * -1);
+}
+
+/* the tear line, stopping short of both notches */
+.ticket-perf {
+  position: absolute;
+  left: var(--perf-x);
+  top: calc(var(--notch) + 4px);
+  bottom: calc(var(--notch) + 4px);
+  width: 2px;
+  margin-left: -1px;
+  background-image: linear-gradient(
+    to bottom,
+    var(--color-line) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 2px 12px;
+}
+.ticket-locked .ticket-perf {
+  background-image: linear-gradient(
+    to bottom,
+    var(--color-line-soft) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+/* punched through once spent — the hole a conductor's punch leaves */
+.ticket-used {
+  background: var(--color-cloud);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket,
+  .ticket-live:hover {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* loyalty tiers — MODULE 8. Three metals, each a ramp rather than a flat
+   fill, so the card reads as something struck and not something printed.
+   The text colour is carried with the metal: silver and gold are far too
+   light to hold white, bronze is not. */
+.tier-bronze {
+  background-color: #a36a3d;
+  background-image: linear-gradient(135deg, #7d4a24 0%, #b0764a 52%, #d59b6b 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+.tier-silver {
+  background-color: #c3c7ce;
+  background-image: linear-gradient(135deg, #8f959f 0%, #ced3da 45%, #f2f4f7 60%, #a8aeb8 100%);
+  color: #2a2d33;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65);
+}
+.tier-gold {
+  background-color: #e3b54a;
+  background-image: linear-gradient(135deg, #b27d22 0%, #e2ae45 38%, #fff0bd 55%, #d59e34 100%);
+  color: #3a2504;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 0 rgb(122 80 10 / 0.35);
 }
 
 /* footer neon — RGB LED strip along the top edge, colours travelling L→R.
@@ -260,7 +587,7 @@ body {
   border-color: rgb(146 45 169 / 0.45);
   box-shadow:
     0 20px 38px -24px rgb(146 45 169 / 0.6),
-    0 5px 14px -9px rgb(23 22 15 / 0.2);
+    0 5px 14px -9px rgb(21 21 26 / 0.2);
 }
 
 /* The wash sits over the image and under the badges, so nothing it tints
@@ -322,15 +649,23 @@ body {
 /* ── Skeleton ─────────────────────────────────────────────────────────────
    A sheen travelling across a flat tint. The sweep is a transform on a
    pseudo-element rather than an animated background-position, so it stays on
-   the compositor even with a full grid of them waiting at once. */
+   the compositor even with a full grid of them waiting at once.
+
+   The sheen is laid out in normal flow at its parent's own size rather than
+   pinned with inset. Pinning would need a positioned .skeleton, and this
+   block is unlayered — a "position: relative" here would beat the absolute
+   utility on the placeholders that sit over a product shot, and drop them
+   back into the flow of the frame they are meant to cover. Flow costs a
+   skeleton nothing: they are all empty boxes with a height of their own. */
 .skeleton {
   overflow: hidden;
   background-color: var(--color-line-soft);
 }
 .skeleton::after {
   content: "";
-  position: absolute;
-  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   transform: translateX(-100%);
   background-image: linear-gradient(
     90deg,
@@ -350,6 +685,106 @@ body {
 @keyframes skeleton-sweep-rtl {
   from { transform: translateX(100%); }
   to { transform: translateX(-100%); }
+}
+
+/* The tint alone still reads as "something is coming"; the sweep is the part
+   that has to go. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+/* The same tint with no sweep, for bars a sweep would be wasted on. A 10px
+   label is a fraction of the sheen's own width, so it reads as a flat flash
+   rather than as travel — and a full page of placeholders arms one animation
+   per box, which is a hundred of them on the catalogue. The ones you can
+   actually watch keep theirs. */
+.skeleton-flat {
+  background-color: var(--color-line-soft);
+}
+
+/* ── Loading mark ─────────────────────────────────────────────────────────
+   The APL mark drawing itself over the catalogue's placeholders. One pass
+   per 2.6s: the outline traces, the gradient floods in behind it, both let
+   go, and the ghost silhouette carries the shape through to the next pass.
+
+   The four shapes are staggered by --i, which is set per path in the
+   component. The stagger is what sells it as one mark being built rather
+   than four things blinking in unison — but it is kept under a third of a
+   second, or the last shape is still arriving when the first has left. */
+.apl-loader {
+  overflow: visible;
+  animation: apl-loader-breathe 2.6s ease-in-out infinite;
+}
+
+.apl-loader-ghost {
+  fill: var(--color-line-soft);
+}
+
+/* the gradient paint is a presentation attribute in the component — see
+   the note there; CSS only owns the timing */
+.apl-loader-fill {
+  opacity: 0;
+  animation: apl-loader-flood 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.09s);
+}
+
+.apl-loader-line {
+  stroke-width: 7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  /* pathLength="1" in the markup is what lets one dasharray fit all four */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: apl-loader-draw 2.6s cubic-bezier(0.16, 0.84, 0.28, 1) infinite;
+  animation-delay: calc(var(--i, 0) * 0.09s);
+}
+
+@keyframes apl-loader-draw {
+  0% { stroke-dashoffset: 1; opacity: 1; }
+  38% { stroke-dashoffset: 0; opacity: 1; }
+  56% { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes apl-loader-flood {
+  0%, 32% { opacity: 0; }
+  52%, 76% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* barely there — enough that the mark feels alive rather than looping */
+@keyframes apl-loader-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+/* Still says "working", without the drawing. The mark sits filled and
+   pulses its opacity instead — no tracing, no scaling. */
+@media (prefers-reduced-motion: reduce) {
+  .apl-loader {
+    animation: none;
+  }
+  .apl-loader-line {
+    display: none;
+  }
+  .apl-loader-fill {
+    opacity: 1;
+    animation: apl-loader-dim 2s ease-in-out infinite;
+    animation-delay: 0s;
+  }
+  @keyframes apl-loader-dim {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+}
+
+/* The halo behind it. The placeholders keep running underneath, and a mark
+   laid straight over a grid of them is hard to read; this lifts it off the
+   cards without dimming the page behind a panel. */
+.apl-loader-halo {
+  background: radial-gradient(closest-side, var(--color-paper) 55%, rgb(241 240 245 / 0) 100%);
 }
 
 /* ── Wishlist ─────────────────────────────────────────────────────────────
@@ -475,6 +910,36 @@ body {
   to { opacity: 1; }
 }
 
+
+/* ── the brisk repeat ──
+   The curtain runs on every crossing between top-level sections, so every one
+   after the first is this: the same panel and the same mark in about half the
+   time. The outline pass is dropped rather than sped up — a stroke that draws
+   itself in a fifth of a second does not read as drawing, it reads as a
+   flicker — so on a repeat the mark simply arrives whole. Durations mirror
+   PACE.again in PageTransition.tsx. */
+.page-curtain[data-run="again"][data-phase="cover"],
+.page-curtain[data-run="again"][data-phase="reveal"] {
+  animation-duration: 0.3s;
+}
+.page-curtain[data-run="again"] .curtain-logo {
+  animation:
+    curtain-logo-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.04s forwards,
+    apl-neon-pulse 1.4s ease-in-out 0.04s infinite;
+}
+/* has to out-rank the rule above it, which would otherwise hold the mark on
+   screen while the panel is already lifting */
+.page-curtain[data-run="again"][data-phase="reveal"] .curtain-logo {
+  animation: curtain-logo-out 0.22s ease-in forwards;
+}
+.page-curtain[data-run="again"] .curtain-stroke {
+  display: none;
+}
+.page-curtain[data-run="again"] .curtain-fill path,
+.page-curtain[data-run="again"] .curtain-tech {
+  animation: curtain-bloom 0.2s ease-out 0.06s forwards;
+}
+
 /* neon halo — drop-shadow follows the glyph outline, box-shadow would halo
    the bounding box instead */
 @keyframes apl-neon-pulse {
@@ -488,6 +953,606 @@ body {
     filter:
       drop-shadow(0 0 11px color-mix(in srgb, var(--color-accent) 72%, transparent))
       drop-shadow(0 0 34px color-mix(in srgb, var(--color-accent-bright) 60%, transparent));
+  }
+}
+
+/* ── PC Builder curtain ────────────────────────────────────────────────────
+   A board coming up on white, played on the way into /configurateur only. Timings
+   mirror PACE in BuilderTransition.tsx; the beats inside the hold are laid
+   out against PACE.first.hold = 900ms and compressed by one rule at the
+   bottom for the repeat.
+
+   Everything here animates transform and opacity and nothing else. The rig is
+   eleven hairlines and eight pads over a full-screen plate, so a width or
+   height animation would lay the whole viewport out again on every frame of a
+   sequence whose entire job is to look effortless. */
+.pcb-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 101;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* The shutters overlap the centre line by a hair. Two panels meeting at
+   exactly 50% leave a sub-pixel seam of the old page showing through on
+   fractional device ratios, and at this contrast it reads as a tear. */
+.pcb-shutter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50.4%;
+  background: var(--color-white);
+  will-change: transform;
+}
+.pcb-shutter-t {
+  top: 0;
+  transform: translateY(-100.5%);
+}
+.pcb-shutter-b {
+  bottom: 0;
+  transform: translateY(100.5%);
+}
+
+.pcb-curtain[data-phase="cover"] .pcb-shutter-t {
+  animation: pcb-close-t 0.3s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+.pcb-curtain[data-phase="cover"] .pcb-shutter-b {
+  animation: pcb-close-b 0.3s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+.pcb-curtain[data-phase="hold"] .pcb-shutter {
+  transform: translateY(0);
+}
+/* Parting is slower than closing and eases out rather than in-out: the
+   builder behind is being handed over, not snapped away. */
+.pcb-curtain[data-phase="reveal"] .pcb-shutter-t {
+  animation: pcb-open-t 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.pcb-curtain[data-phase="reveal"] .pcb-shutter-b {
+  animation: pcb-open-b 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes pcb-close-t { from { transform: translateY(-100.5%); } to { transform: translateY(0); } }
+@keyframes pcb-close-b { from { transform: translateY(100.5%); } to { transform: translateY(0); } }
+@keyframes pcb-open-t { from { transform: translateY(0); } to { transform: translateY(-100.5%); } }
+@keyframes pcb-open-b { from { transform: translateY(0); } to { transform: translateY(100.5%); } }
+
+/* ── the board ── */
+.pcb-rig {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.pcb-curtain[data-phase="hold"] .pcb-rig,
+.pcb-curtain[data-phase="reveal"] .pcb-rig {
+  opacity: 1;
+}
+/* The rig leaves before the shutters do, so the pads are not still glowing
+   while the page they belong to is already sliding into view. */
+.pcb-curtain[data-phase="reveal"] .pcb-rig {
+  animation: pcb-dim 0.2s ease-in forwards;
+}
+@keyframes pcb-dim { to { opacity: 0; } }
+
+/* the bus, ignited from the middle outward */
+.pcb-seam {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  transform: scaleX(0);
+  transform-origin: 50% 50%;
+}
+.pcb-curtain[data-phase="hold"] .pcb-seam,
+.pcb-curtain[data-phase="reveal"] .pcb-seam {
+  animation: pcb-seam 0.34s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes pcb-seam { to { transform: scaleX(1); } }
+
+/* the current itself — a short bright run travelling the bus once */
+.pcb-spark {
+  position: absolute;
+  top: -1px;
+  height: 3px;
+  width: 22%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-accent) 45%,
+    var(--color-accent-bright) 50%,
+    var(--color-accent) 55%,
+    transparent
+  );
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 70%, transparent));
+  opacity: 0;
+  transform: translateX(-120%);
+}
+.pcb-curtain[data-phase="hold"] .pcb-spark,
+.pcb-curtain[data-phase="reveal"] .pcb-spark {
+  animation: pcb-spark 0.62s cubic-bezier(0.3, 0, 0.5, 1) 0.16s forwards;
+}
+@keyframes pcb-spark {
+  0% { opacity: 0; transform: translateX(-120%); }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(560%); }
+}
+/* The current runs with the reading direction; in Arabic it arrives from the
+   other side, like everything else on the page. */
+[dir="rtl"] .pcb-spark {
+  background: linear-gradient(
+    270deg,
+    transparent,
+    var(--color-accent) 45%,
+    var(--color-accent-bright) 50%,
+    var(--color-accent) 55%,
+    transparent
+  );
+}
+[dir="rtl"] .pcb-curtain[data-phase="hold"] .pcb-spark,
+[dir="rtl"] .pcb-curtain[data-phase="reveal"] .pcb-spark {
+  animation-name: pcb-spark-rtl;
+}
+@keyframes pcb-spark-rtl {
+  0% { opacity: 0; transform: translateX(120%); }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-560%); }
+}
+
+/* ── the eight traces ──
+   One per bay, staggered in the order the build sheet seats them. `--i` is the
+   bay index and carries the whole stagger, so the sequence is set once here
+   rather than in eight nth-child rules. */
+.pcb-branch {
+  position: absolute;
+  left: var(--x);
+  top: 50%;
+  width: 1px;
+  height: var(--h);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-accent) 65%, transparent),
+    color-mix(in srgb, var(--color-accent) 18%, transparent)
+  );
+  transform: scaleY(0);
+  will-change: transform;
+}
+.pcb-branch.is-up {
+  transform-origin: 50% 100%;
+  margin-top: calc(var(--h) * -1);
+}
+.pcb-branch.is-down {
+  transform-origin: 50% 0%;
+}
+.pcb-curtain[data-phase="hold"] .pcb-branch,
+.pcb-curtain[data-phase="reveal"] .pcb-branch {
+  animation: pcb-grow 0.3s cubic-bezier(0.22, 1, 0.36, 1) calc(0.24s + var(--i) * 0.055s) forwards;
+}
+@keyframes pcb-grow { to { transform: scaleY(1); } }
+
+/* the pad at the end of each trace, lighting as the trace reaches it */
+.pcb-pad {
+  position: absolute;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-left: -3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  opacity: 0;
+  transform: scale(0.3);
+}
+.pcb-branch.is-up .pcb-pad { top: -3px; }
+.pcb-branch.is-down .pcb-pad { bottom: -3px; }
+
+.pcb-curtain[data-phase="hold"] .pcb-pad,
+.pcb-curtain[data-phase="reveal"] .pcb-pad {
+  animation: pcb-pad 0.42s cubic-bezier(0.22, 1, 0.36, 1) calc(0.46s + var(--i) * 0.055s) forwards;
+}
+@keyframes pcb-pad {
+  0% { opacity: 0; transform: scale(0.3); filter: none; }
+  /* overshoot, then settle — a pad that simply appears reads as a dot drawn,
+     not as one receiving current */
+  45% {
+    opacity: 1;
+    transform: scale(1.5);
+    filter: drop-shadow(0 0 9px var(--color-accent));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 60%, transparent));
+  }
+}
+
+/* ── the repeat ──
+   Every beat survives; the whole sequence is simply shorter. The stagger is
+   the part that has to stay legible, so it compresses least. Mirrors
+   PACE.again. */
+.pcb-curtain[data-run="again"][data-phase="cover"] .pcb-shutter-t,
+.pcb-curtain[data-run="again"][data-phase="cover"] .pcb-shutter-b {
+  animation-duration: 0.22s;
+}
+.pcb-curtain[data-run="again"][data-phase="reveal"] .pcb-shutter-t,
+.pcb-curtain[data-run="again"][data-phase="reveal"] .pcb-shutter-b {
+  animation-duration: 0.3s;
+}
+.pcb-curtain[data-run="again"] .pcb-seam { animation-duration: 0.24s; }
+.pcb-curtain[data-run="again"] .pcb-spark {
+  animation-duration: 0.44s;
+  animation-delay: 0.1s;
+}
+.pcb-curtain[data-run="again"] .pcb-branch {
+  animation-duration: 0.24s;
+  animation-delay: calc(0.14s + var(--i) * 0.04s);
+}
+.pcb-curtain[data-run="again"] .pcb-pad {
+  animation-duration: 0.34s;
+  animation-delay: calc(0.3s + var(--i) * 0.04s);
+}
+
+/* The component declines to intercept the click at all under reduced motion,
+   so this should never render — but a preference can change after a curtain
+   is already on screen, and a plate stuck mid-animation would trap the page
+   behind it. Everything lands on its finished state instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .pcb-curtain,
+  .pcb-curtain * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .pcb-curtain[data-phase="reveal"] .pcb-shutter-t { transform: translateY(-100.5%); }
+  .pcb-curtain[data-phase="reveal"] .pcb-shutter-b { transform: translateY(100.5%); }
+  .pcb-curtain .pcb-seam { transform: scaleX(1); }
+  .pcb-curtain .pcb-branch { transform: scaleY(1); }
+  .pcb-curtain .pcb-pad { opacity: 1; transform: scale(1); }
+}
+
+/* ── PC Builder: the stages that own the viewport ──────────────────────────
+   The conversation and the assembly each take the whole screen — no site
+   header above them, no footer below, nothing to scroll to. A takeover rather
+   than a tall section, which is what a single question deserves when it is the
+   only thing being asked.
+
+   The nav goes too, not just the footer: a fixed header over a full-screen
+   conversation is a strip of a different page pinned across the top of it, and
+   it leaves a keyboard user tabbing into links they cannot see the context
+   for. The builder offers its own way out instead.
+
+   Set and cleared by BuilderClient as the stage changes, so the result page —
+   an ordinary scrolling page — gets all of it back. */
+body.pcb-solo header,
+body.pcb-solo footer {
+  display: none;
+}
+body.pcb-solo {
+  overflow: hidden;
+}
+
+/* ── PC Builder: the blueprint behind the conversation ─────────────────────
+   The tower on the backdrop draws itself once, on arrival, and then stops.
+   One orchestrated moment rather than ambient motion: this sits under body
+   copy someone is trying to read, and a backdrop that keeps moving is a
+   backdrop that keeps taking the eye off the sentence. Slow and long — five
+   seconds — because it is scene-setting, not feedback, and nothing is waiting
+   on it. */
+.pcb-blueprint {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pcb-blueprint 5s cubic-bezier(0.3, 0.8, 0.4, 1) 0.25s forwards;
+}
+@keyframes pcb-blueprint {
+  to { stroke-dashoffset: 0; }
+}
+
+/* The sheet drifts exactly one pattern tile down-right and starts over. One
+   tile, because the pattern then repeats onto itself and the loop has no
+   seam — any other distance snaps back visibly at the wrap. */
+.pcb-sheet {
+  animation: pcb-sheet 26s linear infinite;
+}
+@keyframes pcb-sheet {
+  to { transform: translate(52px, 30.02px); }
+}
+
+/* Current running the frame, once the frame exists to run it — the dash is
+   six per cent of the path, so it reads as a pulse travelling rather than as
+   a dashed line rotating. `pathLength="1"` is what lets that be written as a
+   fraction instead of measured. */
+.pcb-current {
+  stroke-dasharray: 0.06 0.94;
+  stroke-dashoffset: 1;
+  opacity: 0.7;
+  animation: pcb-current 9s linear 5.4s infinite;
+}
+@keyframes pcb-current {
+  to { stroke-dashoffset: 0; }
+}
+
+/* A second current, slower and thinner. Its period shares no factor with the
+   first, so the two drift in and out of phase over minutes instead of chasing
+   each other round the frame in lockstep. */
+.pcb-current-b {
+  opacity: 0.45;
+  animation-duration: 14s;
+  animation-delay: 7.2s;
+}
+
+/* Junctions breathing. Staggered per node in the markup, and on a period that
+   shares no common multiple with the other layers, so they never fall into
+   step and start reading as one thing pulsing. */
+.pcb-node {
+  opacity: 0;
+  animation: pcb-node 4s ease-in-out infinite;
+}
+@keyframes pcb-node {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.58; }
+}
+
+/* Loose components rising up the sheet. Each carries its own duration, and a
+   *negative* delay so it starts mid-flight — otherwise every floater on the
+   page enters from the same edge at the same moment on first paint, which is
+   the one frame that gives the whole effect away. */
+.pcb-floater {
+  opacity: 0;
+  animation-name: pcb-floater;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes pcb-floater {
+  0% { opacity: 0; transform: translate3d(0, 60px, 0); }
+  /* visible across the middle of the run and faded at both ends, so nothing
+     is ever seen appearing or disappearing */
+  18%, 82% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(0, -120px, 0); }
+}
+
+/* The tower rising and settling, on the longest period on the page. Slow
+   enough that it is never caught moving — it is only ever noticed as having
+   moved. */
+.pcb-drift {
+  animation: pcb-drift 19s ease-in-out infinite;
+}
+@keyframes pcb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -14px, 0); }
+}
+
+/* The second view, on a longer period and moving the other way — the two
+   margins breathing in opposition rather than together, which is what stops
+   the whole page looking like it is on one set of bellows. */
+.pcb-drift-slow {
+  animation: pcb-drift-slow 27s ease-in-out infinite;
+}
+@keyframes pcb-drift-slow {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, 12px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcb-blueprint {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  /* Every layer here is ambient — nothing is waiting on any of it, so under
+     this setting it simply does not exist. The floaters go entirely rather
+     than freezing mid-air, where they would read as parts dropped on the
+     page. */
+  .pcb-sheet,
+  .pcb-current,
+  .pcb-node,
+  .pcb-drift,
+  .pcb-drift-slow {
+    animation: none;
+  }
+  .pcb-current,
+  .pcb-floater {
+    display: none;
+  }
+}
+
+/* ── PC Builder: the assembly scene ────────────────────────────────────────
+   An isometric tower putting itself together while the generator searches.
+   Geometry and per-part delays live in AssemblyScene.tsx; this is only how
+   each piece arrives.
+
+   Every part animates transform and opacity and nothing else. There are nine
+   groups of three filled polygons plus three spinning fans on screen at once,
+   and anything that touched geometry per frame would have the browser
+   re-rasterising the whole drawing twenty-odd times a second. */
+.pcb3d {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* the case outline, drawing itself before anything can be put in it */
+.pcb3d-frame {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.pcb3d.is-playing .pcb3d-frame {
+  animation: pcb3d-draw 0.62s cubic-bezier(0.32, 0.94, 0.6, 1) 0.06s forwards;
+}
+@keyframes pcb3d-draw { to { stroke-dashoffset: 0; } }
+
+/* a part sliding into the case down one of its own axes */
+.pcb3d-piece {
+  opacity: 0;
+}
+.pcb3d.is-playing .pcb3d-piece {
+  animation: pcb3d-seat 0.66s cubic-bezier(0.22, 1, 0.36, 1) var(--d) both;
+}
+@keyframes pcb3d-seat {
+  from {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty));
+  }
+  /* Opaque well before it lands: a part that is still fading at the moment it
+     seats reads as an image resolving, not as a thing being put in place. */
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+/* the side panel, arriving along the same axis the parts came in through */
+.pcb3d-glass {
+  opacity: 0;
+}
+.pcb3d.is-playing .pcb3d-glass {
+  animation: pcb3d-panel 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--d) both;
+}
+@keyframes pcb3d-panel {
+  from { opacity: 0; transform: translate(86px, 50px); }
+  to { opacity: 1; transform: translate(0, 0); }
+}
+
+.pcb3d-fan {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+/* The machine coming up, once the side panel is on. Mirrors SPIN_DELAY in
+   scene.ts — the fans starting is the ending now, in place of a glow. */
+.pcb3d.is-playing .pcb3d-fan {
+  animation: pcb3d-spin 1.9s linear 2450ms infinite;
+}
+.pcb3d.is-still .pcb3d-fan {
+  animation: pcb3d-spin 1.9s linear infinite;
+}
+@keyframes pcb3d-spin { to { transform: rotate(360deg); } }
+
+/* The finished machine, with no sequence — what the scene shows once the
+   parts list is up beside it, and what reduced motion gets throughout. */
+.pcb3d.is-still .pcb3d-piece,
+.pcb3d.is-still .pcb3d-glass {
+  opacity: 1;
+  transform: none;
+}
+.pcb3d.is-still .pcb3d-frame {
+  stroke-dashoffset: 0;
+}
+
+/* ── reading the list lifts the part out of the machine ───────────────────
+   The parts table and the drawing are the same object described twice, and
+   this is the thread between them: pointing at a row pulls that component out
+   of the tower along the axis it went in down, and drops everything else back
+   so it cannot compete. An exploded assembly drawing the customer drives,
+   rather than a static one they have to decode.
+
+   `is-still` only. During the build sequence every piece is mid-flight on an
+   animation that owns its transform, and a hover would be fighting it. */
+.pcb3d.is-still .pcb3d-piece,
+.pcb3d.is-still .pcb3d-case,
+.pcb3d.is-still .pcb3d-glass {
+  transition:
+    opacity 0.25s ease,
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pcb3d.is-still[data-focus] .pcb3d-piece,
+.pcb3d.is-still[data-focus] .pcb3d-case,
+.pcb3d.is-still[data-focus] .pcb3d-glass {
+  opacity: 0.16;
+}
+.pcb3d.is-still[data-focus] .pcb3d-piece[data-lit] {
+  opacity: 1;
+}
+/* Pulling the part out answers a cursor. A bay lit because it was just
+   swapped keeps its place — it is already mid-flight on its own run, and
+   lifting it too makes it reseat and then pop straight back out. */
+.pcb3d.is-still[data-focus][data-lift] .pcb3d-piece[data-lit] {
+  transform: translate(var(--lx), var(--ly));
+}
+.pcb3d.is-still[data-focus] .pcb3d-case[data-lit],
+.pcb3d.is-still[data-focus] .pcb3d-glass[data-lit] {
+  opacity: 1;
+}
+
+/* ── swapping a part ──────────────────────────────────────────────────────
+   The old component leaves the machine the way it came in, and the
+   replacement arrives down the same axis. Reusing `--tx`/`--ty` — the offset
+   the part was installed from — is what makes it read as *this slot being
+   serviced* rather than as a card shuffling: a graphics card goes out through
+   the open side because that is the only way one can come out.
+
+   Two curves in one run. Out accelerates, because leaving is a pull; the gap
+   holds briefly so the eye registers an empty slot; in decelerates and
+   settles, because seating a part is a push that stops. One curve across the
+   whole thing reads as a bounce. */
+/* No fill mode, deliberately. The run ends exactly where the piece rests —
+   seated, opaque — so there is nothing to hold, and holding it would be
+   actively harmful: an animation in its fill phase outranks ordinary
+   declarations, so a filled `both` would pin the transform forever and the
+   hover-lift below could never move that piece again. With no fill, the base
+   rules resume the moment the run ends. */
+.pcb3d.is-still .pcb3d-piece[data-swap] {
+  animation: pcb3d-swap 0.9s linear;
+}
+@keyframes pcb3d-swap {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 1);
+  }
+  42% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty));
+    animation-timing-function: linear;
+  }
+  /* the beat with the slot empty */
+  54% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty));
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pcb3d .pcb3d-piece[data-swap] {
+    animation: none !important;
+  }
+}
+
+/* The call-out arrives after the part has started moving, so the label lands
+   on a component that has already left the case rather than racing it out. */
+.pcb3d-callout {
+  animation: pcb3d-callout 0.28s ease-out 0.12s both;
+}
+@keyframes pcb3d-callout {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pcb3d-callout { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcb3d .pcb3d-piece,
+  .pcb3d .pcb3d-glass {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .pcb3d .pcb3d-frame {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+  /* a fan turning forever is exactly the kind of idle motion the setting is
+     asking us to stop */
+  .pcb3d .pcb3d-fan {
+    animation: none !important;
   }
 }
 
@@ -1003,10 +2068,10 @@ body {
    — which lands on the same colour, leaving no seam where the strip was. */
 .search-sheet {
   /* the same tint and blur the nav carries, so the two share one surface */
-  background-color: rgb(251 250 246 / 0.85);
+  background-color: rgb(21 21 26 / 0.92);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--color-line);
-  box-shadow: 0 18px 40px -30px rgb(23 22 15 / 0.55);
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 18px 40px -30px rgb(21 21 26 / 0.55);
   transition:
     background-color 0.3s ease,
     border-color 0.3s ease,
@@ -1020,8 +2085,8 @@ body {
 }
 @keyframes search-handoff {
   0% {
-    background-color: rgb(251 250 246 / 0.85);
-    border-bottom-color: var(--color-line);
+    background-color: rgb(21 21 26 / 0.92);
+    border-bottom-color: rgb(255 255 255 / 0.1);
   }
   22% {
     background-color: rgb(9 7 13 / 0.88);
@@ -1070,7 +2135,7 @@ body {
   flex: none;
   width: 1.1rem;
   height: 1.1rem;
-  color: var(--color-faint);
+  color: rgb(255 255 255 / 0.5);
   transition:
     width 0.4s ease,
     height 0.4s ease,
@@ -1093,13 +2158,13 @@ body {
   font-weight: 700;
   font-size: 1.05rem;
   line-height: 1.3;
-  color: var(--color-ink);
+  color: #fff;
   transition:
     font-size 0.42s cubic-bezier(0.22, 1, 0.36, 1),
     color 0.3s ease;
 }
 .search-input:focus { outline: none; }
-.search-input::placeholder { color: var(--color-faint); font-weight: 500; }
+.search-input::placeholder { color: rgb(255 255 255 / 0.35); font-weight: 500; }
 .search-veil[data-mode="full"] .search-input {
   font-size: clamp(1.5rem, 4vw, 2.4rem);
   color: #fff;
@@ -1114,9 +2179,9 @@ body {
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid var(--color-line);
+  border: 1px solid rgb(255 255 255 / 0.3);
   border-radius: 999px;
-  color: var(--color-mute);
+  color: rgb(255 255 255 / 0.9);
   transition:
     width 0.4s ease,
     height 0.4s ease,
@@ -1129,8 +2194,8 @@ body {
   transition: width 0.4s ease, height 0.4s ease;
 }
 .search-close:hover {
-  border-color: rgb(23 22 15 / 0.3);
-  color: var(--color-ink);
+  border-color: #fff;
+  color: #fff;
 }
 .search-veil[data-mode="full"] .search-close {
   width: 2.5rem;
@@ -1432,7 +2497,7 @@ body {
   border-radius: 999px;
   border: 2px solid var(--color-accent);
   background: #fff;
-  box-shadow: 0 2px 6px -1px rgb(23 22 15 / 0.25);
+  box-shadow: 0 2px 6px -1px rgb(21 21 26 / 0.25);
   cursor: grab;
   transition:
     transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1445,7 +2510,7 @@ body {
   border-radius: 999px;
   border: 2px solid var(--color-accent);
   background: #fff;
-  box-shadow: 0 2px 6px -1px rgb(23 22 15 / 0.25);
+  box-shadow: 0 2px 6px -1px rgb(21 21 26 / 0.25);
   cursor: grab;
   transition:
     transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
@@ -1490,6 +2555,53 @@ body {
 .animate-marquee { animation: marquee 48s linear infinite; }
 .pause-on-hover:hover,
 .pause-on-hover:hover * { animation-play-state: paused; }
+
+/* ── Brand mark, in a list ────────────────────────────────────────────────
+   The marquee sizes its marks optically, off a ratio and a scale per logo,
+   because a dozen of them share one line there and a tall mark beside a wide
+   one reads as a mistake. A filter row has one mark to itself and 28px to
+   put it in, so this fits each one into the slot instead and lets a wordmark
+   be as long and low as it really is.
+
+   Colour is the brand's own, handed in as --mark-color and painted through
+   the mask. Brands with none on file fall back to currentColor and go on
+   dimming with their label the way they always did. */
+.brand-slot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 18px;
+}
+.brand-slot-mark {
+  width: 100%;
+  height: 100%;
+  background-color: var(--mark-color, currentColor);
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+.brand-slot-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Initials, for a brand with no mark of its own. Deliberately a shade
+   quieter than a real logo: it stands in for one rather than claiming to be
+   one. */
+.brand-monogram {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  border: 1px solid currentColor;
+  opacity: 0.55;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 
 /* ── brand marks ──────────────────────────────────────────────────────────
    Each logo is a mask rather than an image, so the one `currentColor` on the
@@ -1536,23 +2648,85 @@ body {
 }
 
 
-/* ── Category rail, small screens ─────────────────────────────────────────
-   The row scrolls sideways once the categories outrun the viewport, and with
-   no scrollbar under it (see .no-bar) nothing says so. The trailing edge
-   fades instead — a chip cut off mid-fade reads as "there is more this way"
-   where a chip cut off by a hard edge just reads as clipped.
+/* ── Category rail ────────────────────────────────────────────────────────
+   The row scrolls sideways once the categories outrun the width they are
+   given, and with no scrollbar under it (see .no-bar) nothing would say so.
+   An end with more behind it fades instead — a chip cut off mid-fade reads
+   as "there is more this way", where a chip cut off by a hard edge just
+   reads as clipped.
 
-   Only below the breakpoint where the whole row fits, and only on the end
-   side, which the logical mask follows in Arabic without a second rule. */
-@media (max-width: 1023px) {
-  .rail-scroll {
-    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
-  }
-  [dir="rtl"] .rail-scroll {
-    -webkit-mask-image: linear-gradient(to left, #000 88%, transparent 100%);
-    mask-image: linear-gradient(to left, #000 88%, transparent 100%);
-  }
+   Which ends fade is measured in the component and arrives here as
+   data-fade, so the cue follows the real overflow instead of a breakpoint:
+   fourteen categories overrun a laptop where six did not, and the same row
+   set in Arabic is a different width again. Only the gradient's direction
+   is handed a right-to-left rule; the rest is written from the ends. */
+.rail-scroll {
+  --rail-fade: 44px;
+}
+.rail-scroll[data-fade="start"] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-fade));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-fade));
+}
+.rail-scroll[data-fade="end"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--rail-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--rail-fade)), transparent 100%);
+}
+.rail-scroll[data-fade="both"] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--rail-fade),
+    #000 calc(100% - var(--rail-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--rail-fade),
+    #000 calc(100% - var(--rail-fade)),
+    transparent 100%
+  );
+}
+[dir="rtl"] .rail-scroll[data-fade="start"] {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 var(--rail-fade));
+  mask-image: linear-gradient(to left, transparent 0, #000 var(--rail-fade));
+}
+[dir="rtl"] .rail-scroll[data-fade="end"] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--rail-fade)), transparent 100%);
+  mask-image: linear-gradient(to left, #000 calc(100% - var(--rail-fade)), transparent 100%);
+}
+[dir="rtl"] .rail-scroll[data-fade="both"] {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    transparent 0,
+    #000 var(--rail-fade),
+    #000 calc(100% - var(--rail-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to left,
+    transparent 0,
+    #000 var(--rail-fade),
+    #000 calc(100% - var(--rail-fade)),
+    transparent 100%
+  );
+}
+
+/* The arrows sit on top of the fade rather than beside the rail, so the row
+   keeps its full width and the chips travel under them. Scale is set on its
+   own property: the button's entry is a transform the motion layer owns. */
+.rail-arrow {
+  box-shadow: 0 2px 12px -6px rgb(21 21 26 / 0.45);
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+.rail-arrow:hover {
+  border-color: rgb(146 45 169 / 0.35);
+  color: var(--color-accent);
+}
+.rail-arrow:active {
+  scale: 0.92;
 }
 
 
@@ -1592,5 +2766,381 @@ body {
   box-shadow: 0 0 0 3px rgb(146 45 169 / 0.12);
 }
 
+/* ── Categories panel ──────────────────────────────────────────────────────
+   Opened from the header link, and drawn as the header unfolding: the same
+   ink ground and the same hairline, so the two read as one surface rather
+   than as a panel that happens to be dark too.
 
+   It sits above the mobile menu (80) because it can be opened from inside it,
+   and below the full search stage (90), which is a destination and should
+   cover everything. */
+.cat-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+}
 
+.cat-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(9 7 13 / 0.5);
+}
+
+/* The panel is measured against the viewport, not the page: 92vw keeps a strip
+   of the page visible on a phone, which is what tells you this is a layer over
+   what you were reading and not a new screen. */
+.cat-panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  width: clamp(288px, 92vw, 400px);
+  background: var(--color-ink);
+  border-inline-start: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 0 60px -12px rgb(9 7 13 / 0.7);
+}
+
+/* the list scrolls on its own; the header above it stays put */
+.cat-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem 0.5rem 1.25rem;
+}
+
+/* ── The panel's own scrollbar ─────────────────────────────────────────────
+   The page's scrollbar is drawn for the light ground it lives on — a paper
+   track and a grey thumb — and inherited into this panel it reads as a bright
+   seam down the ink. This is the same bar in the panel's own palette.
+
+   The thumb is painted inside a transparent border rather than sized directly:
+   the bar keeps an 11px hit area, matching the page's and comfortably wide
+   enough to grab, while what you see is a 5px hairline that does not compete
+   with the artwork beside it. background-clip stops the thumb's colour running
+   under that border, which is what leaves the gap.
+
+   Dragging takes the thumb to the lit accent — the purple tuned for dark
+   grounds, since the flat brand accent only reaches about 3.5:1 here. */
+/* Only where the pseudo-elements below do not exist. Chrome supports both, and
+   setting `scrollbar-width` there wins outright: it drops the bar to Chrome's
+   own 10px "thin" and discards the whole ::-webkit- treatment — the inset
+   pill, the hover, the drag colour. Gated this way each engine gets the best
+   it can draw, rather than both getting the plainer one. */
+@supports not selector(::-webkit-scrollbar) {
+  .cat-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.22) transparent;
+  }
+}
+.cat-list::-webkit-scrollbar {
+  width: 11px;
+}
+/* transparent, so the panel's ink runs the full height behind the thumb */
+.cat-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cat-list::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.18);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+.cat-list::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.34);
+}
+.cat-list::-webkit-scrollbar-thumb:active {
+  background-color: var(--color-accent-lit);
+}
+/* Firefox has no :active on the thumb, so the resting colour carries it */
+.cat-list::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  transition: background-color 0.2s ease;
+}
+.cat-row:hover,
+.cat-row:focus-visible {
+  background-color: rgb(255 255 255 / 0.07);
+}
+
+/* A fixed box with the photograph cropped into it — the source images are all
+   different shapes, and a row of thumbnails only reads as a list if their
+   edges line up. */
+.cat-thumb {
+  flex: none;
+  display: block;
+  width: 3.25rem;
+  height: 3.25rem;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: rgb(255 255 255 / 0.06);
+}
+.cat-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cat-row:hover .cat-thumb img {
+  transform: scale(1.08);
+}
+
+/* the arrow is the only thing that moves on hover besides the photograph, and
+   it moves along the reading direction rather than a fixed one */
+.cat-go {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+.cat-row:hover .cat-go {
+  color: rgb(255 255 255 / 0.85);
+  transform: translateX(3px);
+}
+[dir="rtl"] .cat-row:hover .cat-go {
+  transform: translateX(-3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-thumb img,
+  .cat-go {
+    transition: none;
+  }
+  .cat-row:hover .cat-thumb img,
+  .cat-row:hover .cat-go {
+    transform: none;
+  }
+}
+
+/* ── Categories panel: shelves ─────────────────────────────────────────────
+   The head is one row split in two controls — the category itself, and a
+   chevron that opens its shelves. They share a hover so the pair still reads
+   as a single row, which is what .cat-head is for. */
+.cat-head {
+  display: flex;
+  align-items: stretch;
+  border-radius: 0.75rem;
+  transition: background-color 0.2s ease;
+}
+.cat-head:hover {
+  background-color: rgb(255 255 255 / 0.07);
+}
+/* the row already had its own hover; inside a head the head owns it */
+.cat-head .cat-row:hover {
+  background-color: transparent;
+}
+.cat-row--grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.cat-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  border-radius: 0.75rem;
+  color: rgb(255 255 255 / 0.35);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.cat-toggle:hover,
+.cat-toggle[aria-expanded="true"] {
+  color: rgb(255 255 255 / 0.9);
+}
+
+/* Indented under the thumbnail rather than the row, so the shelves hang off
+   the picture that opened them and the eye has one line to follow down. The
+   rule is that line. */
+.cat-subs {
+  overflow: hidden;
+  margin-inline-start: 2.375rem;
+  border-inline-start: 1px solid rgb(255 255 255 / 0.12);
+  padding-inline-start: 0.625rem;
+}
+
+.cat-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: rgb(255 255 255 / 0.72);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.cat-sub:hover {
+  background-color: rgb(255 255 255 / 0.07);
+  color: #fff;
+}
+
+/* tabular so a column of counts lines up under itself */
+.cat-sub-n {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.4);
+}
+
+/* an empty shelf is still worth listing — it says the store has the category
+   but nothing in it right now — but it should not look like a live link */
+.cat-sub[data-empty] {
+  opacity: 0.5;
+}
+
+/* ── Filter panel: shelves under a category ────────────────────────────────
+   The subs hang off the category they belong to, indented past the row's own
+   padding and tied to it by a rule — the same device the categories panel
+   uses, so the nesting reads the same in both places. */
+.filter-subs {
+  overflow: hidden;
+  margin-inline-start: 0.875rem;
+  border-inline-start: 1px solid var(--color-line);
+  padding-inline-start: 0.5rem;
+}
+
+.filter-sub {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.4375rem 0.625rem;
+  text-align: start;
+  font-size: 0.8125rem;
+  color: var(--color-mute);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.filter-sub:hover {
+  background-color: var(--color-white);
+  color: var(--color-ink);
+}
+
+/* The chosen shelf is marked with a rule and weight rather than a second
+   filled pill: the category above it already carries the accent, and two
+   solid pills in one column make the narrower choice look like the heading. */
+.filter-sub--on {
+  color: var(--color-accent);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+[dir="rtl"] .filter-sub--on {
+  box-shadow: inset -2px 0 0 var(--color-accent);
+}
+
+.filter-sub-n {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-faint);
+}
+
+/* an empty shelf still says the store keeps one, but should not invite a click */
+.filter-sub[data-empty] {
+  opacity: 0.55;
+}
+
+/* the coupon's face in the shop grid — MODULE 8.
+   A store card whose artwork is the coupon itself: the value on a tinted
+   ground, torn along the bottom where the stub would come away. The notches
+   are paper-coloured discs over the edge, the same trick the horizontal
+   ticket uses, and they only ever sit on the one flat background. */
+.coupon-face {
+  /* the tier the coupon belongs to, worn as a wash across its face */
+  --metal: var(--color-accent);
+  --tear: 22%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+  background-color: #fff;
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--metal) 45%, #fff) 0%,
+    color-mix(in srgb, var(--metal) 16%, #fff) 62%,
+    #fff 100%
+  );
+  box-shadow: inset 0 0 0 1px var(--color-line);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease;
+}
+.coupon-card:hover .coupon-face {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, var(--color-line)),
+    0 16px 28px -20px rgb(146 45 169 / 0.6);
+}
+
+/* out of reach: the metal is still there, but barely — enough to place the
+   coupon on its shelf, not enough to look available */
+.coupon-face[data-tier="bronze"] { --metal: #b0764a; }
+.coupon-face[data-tier="silver"] { --metal: #9aa1ab; }
+.coupon-face[data-tier="gold"] { --metal: #e0ad45; }
+
+.coupon-face[data-locked] {
+  background-color: var(--color-cloud);
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--metal) 20%, var(--color-cloud)) 0%,
+    var(--color-cloud) 75%
+  );
+}
+.coupon-card:hover .coupon-face[data-locked] {
+  transform: none;
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+
+.coupon-tear {
+  position: absolute;
+  inset-inline: 0;
+  bottom: var(--tear);
+  height: 0;
+  border-top: 2px dashed var(--color-line);
+  opacity: 0.85;
+}
+.coupon-punch {
+  position: absolute;
+  bottom: var(--tear);
+  width: 20px;
+  height: 20px;
+  margin-bottom: -10px;
+  border-radius: 9999px;
+  background: var(--color-paper);
+}
+.coupon-punch-start {
+  inset-inline-start: -10px;
+}
+.coupon-punch-end {
+  inset-inline-end: -10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coupon-face,
+  .coupon-card:hover .coupon-face {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* the two halves of the coupon's face: the value, and the stub that names
+   what kind of discount it is */
+.coupon-body {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 1.75rem 1.25rem 0.75rem;
+}
+.coupon-stub {
+  height: var(--tear);
+  display: grid;
+  place-items: center;
+}

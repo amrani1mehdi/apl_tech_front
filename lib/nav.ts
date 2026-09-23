@@ -6,7 +6,8 @@ export const NAV = [
   { k: "home", href: "/" },
   { k: "store", href: "/catalogue" },
   { k: "configurateur", href: "/configurateur" },
-  { k: "contact", href: "/contact" },
+  { k: "coupons", href: "/coupons" },
+  { k: "track", href: "/suivi" },
 ] as const;
 
 export const PRINCIPAL_PATHS: ReadonlySet<string> = new Set(NAV.map((n) => n.href));

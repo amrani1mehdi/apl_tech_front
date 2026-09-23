@@ -15,10 +15,13 @@ const grouped = (n: number) => n.toLocaleString("fr-FR");
  * events, so the input lying on top does not swallow clicks meant for the one
  * underneath.
  *
- * Everything is pinned to LTR in both directions. A range input mirrors under
- * dir="rtl" while the numbers do not, and a bar filling from the right under
- * a field labelled "min" is harder to trust than one that always runs low to
- * high — so the fields sit in the same order as the handles they belong to.
+ * The whole control mirrors in Arabic. A range input already does that on
+ * its own — the minimum end of the track is the start edge, which is the
+ * right one under dir="rtl" — and the fields follow their flex row, so the
+ * min field lands under the min handle without being told to. The one part
+ * that does not mirror itself is the fill between the handles, which is
+ * positioned from measured percentages; those are named from the ends rather
+ * than from left and right below.
  */
 export function PriceSlider({
   bounds,
@@ -27,6 +30,7 @@ export function PriceSlider({
   onChange,
   minLabel,
   maxLabel,
+  unit = "DA",
 }: {
   bounds: { min: number; max: number };
   value: { min: number; max: number };
@@ -34,8 +38,11 @@ export function PriceSlider({
   onChange: (next: { min: number; max: number }) => void;
   minLabel: string;
   maxLabel: string;
+  /** what the numbers are counted in — dinars in the catalogue, points on
+      the coupon shelf */
+  unit?: string;
 }) {
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
 
   /* A field being typed into holds its own raw text: grouping digits back
      under the caret on every keystroke fights whoever is typing, and half an
@@ -46,6 +53,14 @@ export function PriceSlider({
 
   const span = Math.max(1, bounds.max - bounds.min);
   const pct = (v: number) => ((v - bounds.min) / span) * 100;
+
+  /* Written as left/right rather than as the logical pair because the fill
+     is transitioned, and these two are the properties the stylesheet eases.
+     Low prices sit at the start of the track, whichever side that is. */
+  const fill =
+    dir === "rtl"
+      ? { right: `${pct(value.min)}%`, left: `${100 - pct(value.max)}%` }
+      : { left: `${pct(value.min)}%`, right: `${100 - pct(value.max)}%` };
   const disabled = bounds.max <= bounds.min;
 
   const setMin = (v: number) => onChange({ min: Math.min(v, value.max), max: value.max });
@@ -92,18 +107,18 @@ export function PriceSlider({
           }}
           className="w-full min-w-0 bg-transparent font-mono text-[11px] tabular-nums text-ink outline-none"
         />
-        <span className="shrink-0 font-mono text-[10px] text-faint">DA</span>
+        <span className="shrink-0 font-mono text-[10px] text-faint">{unit}</span>
       </span>
     </label>
   );
 
   return (
-    <div dir="ltr">
+    <div>
       <div className="price-slider relative h-9">
         <span className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" />
         <span
           className="price-fill bg-accent-gradient-x absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
-          style={{ left: `${pct(value.min)}%`, right: `${100 - pct(value.max)}%` }}
+          style={fill}
         />
         <input
           type="range"

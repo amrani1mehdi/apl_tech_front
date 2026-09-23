@@ -11,7 +11,7 @@ import {
 } from "react";
 import { Link } from "@/components/i18n/LocaleLink";
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Truck } from "lucide-react";
-import { formatDA } from "@/lib/products";
+import { formatDA, getProduct } from "@/lib/products";
 import { useLocale } from "@/components/i18n/LocaleProvider";
 
 export type CartItem = {
@@ -20,9 +20,61 @@ export type CartItem = {
   image: string;
   price: number;
   qty: number;
+  /** PRD-02 — the finish, already written out ("Noir", "Noir · 8 Go") */
+  variant?: string;
+  /**
+   * Where this line goes when it is clicked, for anything that is not a
+   * catalogue product.
+   *
+   * The cart used to send every row to `/produit/<slug>`, which is right for
+   * the thirty-odd things the shop stocks and wrong for the one thing it
+   * assembles. A configuration's slug is a synthetic id minted per build —
+   * `build-mu2kjp0f-1` — so clicking one asked for a product page that has
+   * never existed and never will, and the customer got a 404 for the most
+   * expensive line in their basket. (Next also prefetched it on hover, so the
+   * failure was already in the console before anyone clicked.)
+   *
+   * Locale-less on purpose: it is handed to `LocaleLink`, which prefixes the
+   * language in force when the link is *rendered*. Baking `/ar/` in at the
+   * moment of adding would strand a customer who switched language afterwards.
+   */
+  href?: string;
 };
 
+/**
+ * What counts as one line of the order.
+ *
+ * The slug alone used to, which was true right up until a product could be
+ * bought in two colours: adding the black one and then the white one would
+ * find the first line, add to its quantity, and quietly ship two black ones.
+ * Everything that addresses a line — removing it, changing its quantity, the
+ * row's React key — goes through this.
+ */
+export function lineOf(i: Pick<CartItem, "slug" | "variant">): string {
+  return i.variant ? `${i.slug}::${i.variant}` : i.slug;
+}
+
+/**
+ * Where a line goes when it is clicked — or null when it has nowhere to go.
+ *
+ * Its own `href` first. Then a product page, but only for a slug the catalogue
+ * actually has. Every line used to fall back to `/produit/<slug>` blindly, and
+ * that fallback is a 404 for anything that is not a product: a configuration
+ * put in a cart before lines carried an `href` still sits in that browser's
+ * saved cart with a slug like `build-mu2kjp0f-1`, and clicking it opened
+ * "This page could not be found". Such a line cannot be sent back to its
+ * machine — it never recorded the parts — so it is simply not a link.
+ */
+export function lineHref(i: Pick<CartItem, "slug" | "href">): string | null {
+  if (i.href) return i.href;
+  return getProduct(i.slug) ? `/produit/${i.slug}` : null;
+}
+
 type CartCtx = {
+  /** false until the saved cart has been read back from this browser — a page
+      that renders "your cart is empty" before then flashes it at every visitor
+      who has something in their cart */
+  ready: boolean;
   items: CartItem[];
   count: number;
   subtotal: number;
@@ -30,8 +82,19 @@ type CartCtx = {
   addItem: (item: Omit<CartItem, "qty">, qty?: number, origin?: HTMLElement | null) => void;
   /** increments each time an item lands in the cart, so the header can react */
   bump: number;
-  removeItem: (slug: string) => void;
-  setQty: (slug: string, qty: number) => void;
+  /** both take a line key from lineOf(), not a slug */
+  removeItem: (line: string) => void;
+  setQty: (line: string, qty: number) => void;
+  /**
+   * The promo code the customer applied — PAN-02. Only the code is held, never
+   * the discount: the discount depends on what is in the cart at the moment it
+   * is read, and `totalsOf` works it out fresh every time. Kept beside the
+   * items and persisted with them, so a code entered on the cart page is still
+   * applied at checkout and after a reload.
+   */
+  promoCode: string | null;
+  setPromoCode: (code: string | null) => void;
+  /** empties the cart and forgets the code — after an order is placed */
   clear: () => void;
   openCart: () => void;
   closeCart: () => void;
@@ -46,14 +109,16 @@ export function useCart() {
 }
 
 const KEY = "apltech-cart";
+const PROMO_KEY = "apltech-promo";
 /** must match the reveal transition in globals.css */
 const COLLAPSE_MS = 600;
 /** must match .cart-row-out in globals.css */
 const ROW_EXIT_MS = 320;
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [promoCode, setPromoCode] = useState<string | null>(null);
   const [bump, setBump] = useState(0);
   const [reveal, setReveal] = useState({ x: 0, y: 0, r: 0 });
   const [expanded, setExpanded] = useState(false);
@@ -85,6 +150,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) setItems(JSON.parse(raw));
+      setPromoCode(localStorage.getItem(PROMO_KEY));
     } catch {}
     setHydrated(true);
   }, []);
@@ -92,6 +158,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hydrated) localStorage.setItem(KEY, JSON.stringify(items));
   }, [items, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      if (promoCode) localStorage.setItem(PROMO_KEY, promoCode);
+      else localStorage.removeItem(PROMO_KEY);
+    } catch {
+      /* storage blocked — the code still applies for this visit */
+    }
+  }, [promoCode, hydrated]);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -102,11 +178,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem: CartCtx["addItem"] = (item, qty = 1, origin) => {
     setItems((prev) => {
-      const found = prev.find((p) => p.slug === item.slug);
-      if (found)
-        return prev.map((p) =>
-          p.slug === item.slug ? { ...p, qty: p.qty + qty } : p,
-        );
+      const line = lineOf(item);
+      const found = prev.find((p) => lineOf(p) === line);
+      if (found) return prev.map((p) => (lineOf(p) === line ? { ...p, qty: p.qty + qty } : p));
       return [...prev, { ...item, qty }];
     });
 
@@ -173,30 +247,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, [open, close]);
 
-  const removeItem: CartCtx["removeItem"] = (slug) =>
-    setItems((prev) => prev.filter((p) => p.slug !== slug));
+  const removeItem: CartCtx["removeItem"] = (line) =>
+    setItems((prev) => prev.filter((p) => lineOf(p) !== line));
 
   /**
    * Drawer-only exit: keeps the row in the list for the length of its
    * animation, then drops it. The shared removeItem stays immediate so the
    * cart page's own exit animation isn't delayed on top of this one.
    */
-  const removeWithExit = (slug: string) => {
-    setRemoving((r) => (r.includes(slug) ? r : [...r, slug]));
+  const removeWithExit = (line: string) => {
+    setRemoving((r) => (r.includes(line) ? r : [...r, line]));
     setTimeout(() => {
-      removeItem(slug);
-      setRemoving((r) => r.filter((x) => x !== slug));
+      removeItem(line);
+      setRemoving((r) => r.filter((x) => x !== line));
     }, ROW_EXIT_MS);
   };
 
-  const setQty: CartCtx["setQty"] = (slug, qty) =>
+  const setQty: CartCtx["setQty"] = (line, qty) =>
     setItems((prev) =>
-      prev.flatMap((p) =>
-        p.slug === slug ? (qty <= 0 ? [] : [{ ...p, qty }]) : [p],
-      ),
+      prev.flatMap((p) => (lineOf(p) === line ? (qty <= 0 ? [] : [{ ...p, qty }]) : [p])),
     );
 
-  const clear = () => setItems([]);
+  const clear = () => {
+    setItems([]);
+    setPromoCode(null);
+  };
 
   const subtotal = useMemo(
     () => items.reduce((s, p) => s + p.price * p.qty, 0),
@@ -207,6 +282,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider
       value={{
+        ready: hydrated,
         items,
         count,
         subtotal,
@@ -214,6 +290,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         bump,
         removeItem,
         setQty,
+        promoCode,
+        setPromoCode,
         clear,
         openCart: () => {
           const rect = document.querySelector("[data-cart-target]")?.getBoundingClientRect();
@@ -299,7 +377,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               </h2>
               {items.length > 0 && (
                 <span className="font-display text-xl font-bold text-white">
-                  {formatDA(subtotal)}
+                  {formatDA(subtotal, locale)}
                 </span>
               )}
             </div>
@@ -318,49 +396,65 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ) : (
               <>
                 <ul className="mt-7 space-y-3">
-                  {items.map((it, i) => (
+                  {items.map((it, i) => {
+                    const href = lineHref(it);
+                    const thumbCls = "h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-black/30";
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    const thumb = <img src={it.image} alt={it.name} className="h-full w-full object-cover" />;
+                    return (
                     <li
-                      key={it.slug}
-                      data-removing={removing.includes(it.slug) || undefined}
+                      key={lineOf(it)}
+                      data-removing={removing.includes(lineOf(it)) || undefined}
                       className="cart-row reveal-item flex gap-4 rounded-xl border border-white/12 bg-white/[0.06] p-3 transition-colors hover:border-white/30"
                       style={{ ["--i" as string]: i }}
                     >
-                      <Link
-                        href={`/produit/${it.slug}`}
-                        onClick={close}
-                        className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-black/30"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={it.image} alt={it.name} className="h-full w-full object-cover" />
-                      </Link>
+                      {href ? (
+                        <Link href={href} onClick={close} className={thumbCls}>
+                          {thumb}
+                        </Link>
+                      ) : (
+                        <span className={thumbCls}>{thumb}</span>
+                      )}
 
                       <div className="flex min-w-0 flex-1 flex-col">
                         <div className="flex justify-between gap-3">
-                          <Link
-                            href={`/produit/${it.slug}`}
-                            onClick={close}
-                            className="truncate text-sm font-medium text-white transition-colors hover:text-white/70"
-                          >
-                            {it.name}
-                          </Link>
+                          {href ? (
+                            <Link
+                              href={href}
+                              onClick={close}
+                              className="truncate text-sm font-medium text-white transition-colors hover:text-white/70"
+                            >
+                              {it.name}
+                            </Link>
+                          ) : (
+                            <span className="truncate text-sm font-medium text-white">{it.name}</span>
+                          )}
                           <button
                             aria-label="Retirer"
-                            onClick={() => removeWithExit(it.slug)}
+                            onClick={() => removeWithExit(lineOf(it))}
                             className="shrink-0 text-white/35 transition-colors hover:text-white"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
 
+                        {/* the finish sits between the name and the price, the
+                            way it is asked for on the product page */}
+                        {it.variant && (
+                          <p className="mt-0.5 truncate text-xs text-white/55">{it.variant}</p>
+                        )}
+
                         <p className="mt-0.5 text-sm font-semibold text-white/85">
-                          {formatDA(it.price)}
+                          {formatDA(it.price, locale)}
                         </p>
 
                         <div className="mt-auto flex items-center gap-1 self-start rounded-full border border-white/25">
                           <button
                             aria-label="Moins"
                             onClick={() =>
-                              it.qty <= 1 ? removeWithExit(it.slug) : setQty(it.slug, it.qty - 1)
+                              it.qty <= 1
+                                ? removeWithExit(lineOf(it))
+                                : setQty(lineOf(it), it.qty - 1)
                             }
                             className="grid h-7 w-7 place-items-center text-white/70 hover:text-white"
                           >
@@ -371,7 +465,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                           </span>
                           <button
                             aria-label="Plus"
-                            onClick={() => setQty(it.slug, it.qty + 1)}
+                            onClick={() => setQty(lineOf(it), it.qty + 1)}
                             className="grid h-7 w-7 place-items-center text-white/70 hover:text-white"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -379,7 +473,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                         </div>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
 
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
